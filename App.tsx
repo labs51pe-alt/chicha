@@ -109,6 +109,8 @@ const App: React.FC = () => {
     }).filter(Boolean) as CartItem[]);
   };
 
+  const clearCart = () => setCartItems([]);
+
   if (isInitialLoading) return (
     <div className="fixed inset-0 bg-[#fffef5] flex flex-col items-center justify-center z-[1000]">
        <div className="w-10 h-10 border-[3px] border-black/5 border-t-[#ff0095] rounded-full animate-spin"></div>
@@ -306,6 +308,7 @@ const App: React.FC = () => {
         items={cartItems} 
         onRemove={(id, vId) => updateQuantity(id, -99, vId)} 
         onUpdateQuantity={updateQuantity} 
+        onClearCart={clearCart}
         whatsappNumber={appConfig.whatsapp_number} 
       />
       

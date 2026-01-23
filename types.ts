@@ -46,7 +46,22 @@ export interface AppConfig {
   opening_hours?: string;
 }
 
-export interface CustomAssets {
-  logo?: string;
-  slides: string[];
+export interface OrderItem {
+  id?: string;
+  order_id?: string;
+  product_name: string;
+  variant_name?: string;
+  quantity: number;
+  price: number;
+}
+
+export interface Order {
+  id: string;
+  customer_name: string;
+  order_type: 'delivery' | 'pickup';
+  address?: string;
+  total_amount: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  created_at: string;
+  items?: OrderItem[];
 }

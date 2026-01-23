@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MenuItem, Category, AppConfig } from '../types';
+import { MenuItem, Category, AppConfig, Order } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface AdminPanelProps {
@@ -20,22 +20,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   config,
   onRefresh
 }) => {
-  // Usar sessionStorage para persistir el login mientras la pestaña esté abierta
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return sessionStorage.getItem('admin_session') === 'active';
   });
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'branding' | 'products'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'products' | 'orders'>('orders'); // Por defecto en pedidos
   const [editingProduct, setEditingProduct] = useState<Partial<MenuItem> | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const slideInputRef = useRef<HTMLInputElement>(null);
-  const prodImgInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (activeTab === 'orders' && isLoggedIn) {
+      fetchOrders();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  const fetchOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false });
+      
+      if (data) setOrders(data);
+    } catch (e) {
+      console.error("Error fetching orders:", e);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+    
+    if (!error) fetchOrders();
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    if (!confirm('¿Seguro que quieres borrar este registro de pedido?')) return;
+    await supabase.from('orders').delete().eq('id', orderId);
+    fetchOrders();
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,14 +92,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleUpdateConfig = async (updates: Partial<AppConfig>) => {
     setSaving(true);
     const { error } = await supabase.from('app_config').update(updates).eq('id', config.id);
-    if (!error) {
-      // Importante: No cerrar el panel aquí, solo refrescar datos
-      onRefresh();
-    }
+    if (!error) onRefresh();
     setSaving(false);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'slide' | 'product') => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'product') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -73,9 +104,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         const base64 = reader.result as string;
         if (type === 'logo') {
           await handleUpdateConfig({ logo_url: base64 });
-        } else if (type === 'slide') {
-          const newSlides = [...(config.slide_urls || []), base64].slice(-5);
-          await handleUpdateConfig({ slide_urls: newSlides });
         } else if (type === 'product' && editingProduct) {
           setEditingProduct({ ...editingProduct, image_url: base64 });
         }
@@ -98,51 +126,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       is_combo: editingProduct.is_combo
     };
 
-    let result;
     if (editingProduct.id) {
-      result = await supabase.from('products').update(productData).eq('id', editingProduct.id);
+      await supabase.from('products').update(productData).eq('id', editingProduct.id);
     } else {
-      result = await supabase.from('products').insert([productData]).select();
+      await supabase.from('products').insert([productData]);
     }
 
-    if (!result.error) {
-      setEditingProduct(null);
-      onRefresh();
-    }
+    setEditingProduct(null);
+    onRefresh();
     setSaving(false);
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm('¿Seguro que quieres borrar este plato?')) return;
-    await supabase.from('products').delete().eq('id', id);
-    onRefresh();
-  };
+  if (!isOpen) return null;
 
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-500">
+      <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6">
         <div className="bg-white w-full max-w-sm rounded-[3rem] p-12 text-center shadow-2xl">
           <div className="mb-10">
             <div className="w-24 h-24 bg-[#ff0095]/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <i className="fa-solid fa-lock text-[#ff0095] text-4xl"></i>
             </div>
-            <h2 className="font-black brand-font text-3xl uppercase tracking-tight">Panel Admin</h2>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">Introduce la clave para gestionar</p>
+            <h2 className="font-black brand-font text-3xl uppercase tracking-tight">Admin</h2>
           </div>
-          
           <form onSubmit={handleLogin} className="space-y-6">
-            <input 
-              type="password" 
-              placeholder="Contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`w-full bg-gray-50 p-6 rounded-2xl text-center font-black outline-none border-2 transition-all ${loginError ? 'border-red-500 animate-shake' : 'border-transparent focus:border-[#ff0095]/20'}`}
-              autoFocus
-            />
-            <button className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-[#ff0095] transition-all shadow-xl active:scale-95">
-              Acceder Ahora
-            </button>
-            <button type="button" onClick={onClose} className="text-[11px] font-black uppercase text-gray-300 hover:text-gray-500 tracking-[0.3em] pt-4 block mx-auto transition-colors">Volver a la carta</button>
+            <input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 p-6 rounded-2xl text-center font-black outline-none border-2 border-transparent focus:border-[#ff0095]/20" autoFocus />
+            <button className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-[#ff0095] transition-all">Acceder</button>
+            <button type="button" onClick={onClose} className="text-[11px] font-black uppercase text-gray-300 pt-4 block mx-auto">Cerrar</button>
           </form>
         </div>
       </div>
@@ -150,167 +160,232 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
-      <div className="bg-[#fffdf0] w-full max-w-7xl h-full rounded-[4rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border border-white/10">
+    <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10">
+      <div className="bg-[#fffdf0] w-full max-w-7xl h-full rounded-[4rem] overflow-hidden shadow-2xl flex flex-col md:flex-row">
         
-        {/* Sidebar Nav */}
-        <div className="w-full md:w-80 bg-white p-12 flex flex-col gap-6 border-r border-gray-100">
-          <div className="mb-10">
-            <h2 className="text-2xl font-black brand-font text-black">Chicha <span className="text-[#ff0095]">Admin</span></h2>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Gestión de Negocio A1</p>
-          </div>
-          
-          <button onClick={() => setActiveTab('branding')} className={`flex items-center gap-5 p-6 rounded-[2rem] text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'branding' ? 'bg-[#ff0095] text-white shadow-xl scale-105' : 'hover:bg-gray-100 text-gray-400'}`}>
-            <i className="fa-solid fa-gem text-xl"></i>Identidad
+        {/* Sidebar */}
+        <div className="w-full md:w-72 bg-white p-10 flex flex-col gap-4 border-r">
+          <h2 className="text-xl font-black brand-font mb-8">CHICHA <span className="text-[#ff0095]">GESTIÓN</span></h2>
+          <button onClick={() => setActiveTab('orders')} className={`flex items-center gap-4 p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest ${activeTab === 'orders' ? 'bg-[#ff0095] text-white' : 'text-gray-400'}`}>
+            <i className="fa-solid fa-receipt text-lg"></i> Pedidos
           </button>
-          <button onClick={() => setActiveTab('products')} className={`flex items-center gap-5 p-6 rounded-[2rem] text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-[#ff0095] text-white shadow-xl scale-105' : 'hover:bg-gray-100 text-gray-400'}`}>
-            <i className="fa-solid fa-utensils text-xl"></i>Platos del Menú
+          <button onClick={() => setActiveTab('products')} className={`flex items-center gap-4 p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest ${activeTab === 'products' ? 'bg-[#ff0095] text-white' : 'text-gray-400'}`}>
+            <i className="fa-solid fa-utensils text-lg"></i> Menú
           </button>
-          
-          <div className="mt-auto pt-10">
-            <button onClick={handleLogout} className="w-full p-6 rounded-[2rem] bg-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg active:scale-95">
-              Cerrar Sesión
-            </button>
-          </div>
+          <button onClick={() => setActiveTab('branding')} className={`flex items-center gap-4 p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest ${activeTab === 'branding' ? 'bg-[#ff0095] text-white' : 'text-gray-400'}`}>
+            <i className="fa-solid fa-gem text-lg"></i> Identidad
+          </button>
+          <button onClick={handleLogout} className="mt-auto p-5 rounded-2xl bg-black text-white text-[10px] font-black uppercase">Salir</button>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-grow overflow-y-auto p-12 no-scrollbar bg-[#fffdf0]">
-          <div className="max-w-4xl mx-auto">
-            
-            {activeTab === 'branding' && (
-              <div className="space-y-16 animate-in slide-in-from-right-10 duration-500">
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                  <div className="md:col-span-1 space-y-6">
-                     <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#ff0095]">Logotipo del Local</h3>
-                     <div className="aspect-square bg-white rounded-[3rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group cursor-pointer shadow-sm hover:border-[#ff0095]/20 transition-all" onClick={() => logoInputRef.current?.click()}>
-                        {config.logo_url ? <img src={config.logo_url} className="w-full h-full object-contain p-8" /> : <i className="fa-solid fa-cloud-arrow-up text-gray-200 text-4xl"></i>}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest transition-all">Cambiar Logo</div>
-                        <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
-                     </div>
-                  </div>
-                  
-                  <div className="md:col-span-2 space-y-8">
-                     <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#ff0095]">Datos del Negocio</h3>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-gray-400 uppercase px-2">WhatsApp de Pedidos</label>
-                          <input type="text" placeholder="51..." defaultValue={config.whatsapp_number} onBlur={(e) => handleUpdateConfig({ whatsapp_number: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100 focus:border-[#ff0095]/20" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-gray-400 uppercase px-2">Celular para Yape</label>
-                          <input type="text" placeholder="9..." defaultValue={config.yape_number} onBlur={(e) => handleUpdateConfig({ yape_number: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100 focus:border-[#ff0095]/20" />
-                        </div>
-                        <div className="space-y-2 sm:col-span-2">
-                          <label className="text-[10px] font-black text-gray-400 uppercase px-2">Dirección del Local</label>
-                          <input type="text" defaultValue={config.address} onBlur={(e) => handleUpdateConfig({ address: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100 focus:border-[#ff0095]/20" />
-                        </div>
-                     </div>
-                  </div>
-                </section>
-
-                <section className="space-y-8">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#ff0095]">Redes Sociales (URLs)</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <input type="text" placeholder="Instagram" defaultValue={config.instagram_url} onBlur={(e) => handleUpdateConfig({ instagram_url: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100" />
-                    <input type="text" placeholder="Facebook" defaultValue={config.facebook_url} onBlur={(e) => handleUpdateConfig({ facebook_url: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100" />
-                    <input type="text" placeholder="TikTok" defaultValue={config.tiktok_url} onBlur={(e) => handleUpdateConfig({ tiktok_url: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100" />
-                  </div>
-                </section>
-
-                <section className="space-y-8">
-                   <div className="flex justify-between items-center">
-                     <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#ff0095]">Galería de Bienvenida (Máx 5)</h3>
-                     <button onClick={() => slideInputRef.current?.click()} className="text-[10px] font-black bg-black text-white px-6 py-3 rounded-full uppercase tracking-widest hover:bg-[#ff0095] transition-all">Subir Foto</button>
-                   </div>
-                   <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-                      {config.slide_urls?.map((url, i) => (
-                        <div key={i} className="aspect-[4/5] bg-white rounded-[2rem] overflow-hidden relative group shadow-sm border border-gray-100">
-                           <img src={url} className="w-full h-full object-cover" />
-                           <button onClick={() => handleUpdateConfig({ slide_urls: config.slide_urls.filter((_, idx) => idx !== i) })} className="absolute top-3 right-3 w-10 h-10 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg flex items-center justify-center"><i className="fa-solid fa-trash text-xs"></i></button>
-                        </div>
-                      ))}
-                      <input type="file" ref={slideInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'slide')} />
-                   </div>
-                </section>
-              </div>
-            )}
-
-            {activeTab === 'products' && (
-              <div className="space-y-10 animate-in slide-in-from-right-10 duration-500">
-                <div className="flex justify-between items-center bg-white p-8 rounded-[3rem] shadow-sm border border-gray-50">
-                  <div>
-                    <h3 className="text-2xl font-black brand-font text-black">Gestión de Menú</h3>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Publica tus mejores platos</p>
-                  </div>
-                  <button onClick={() => setEditingProduct({ is_popular: false, is_combo: false, price: 0 })} className="bg-black text-white px-10 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-[#ff0095] transition-all active:scale-95">
-                    + Nuevo Plato
-                  </button>
+        {/* Content */}
+        <div className="flex-grow overflow-y-auto p-12 no-scrollbar">
+          
+          {activeTab === 'orders' && (
+            <div className="space-y-8 max-w-6xl mx-auto animate-reveal">
+              <div className="flex justify-between items-center bg-white p-8 rounded-3xl border shadow-sm">
+                <div>
+                  <h3 className="text-2xl font-black brand-font italic uppercase leading-none">Pedidos Recibidos</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Gestión en tiempo real</p>
                 </div>
+                <button onClick={fetchOrders} className="w-12 h-12 bg-gray-50 rounded-2xl text-gray-400 hover:text-[#ff0095] transition-all flex items-center justify-center">
+                  <i className={`fa-solid fa-arrows-rotate ${loadingOrders ? 'animate-spin' : ''}`}></i>
+                </button>
+              </div>
+              
+              {loadingOrders && orders.length === 0 ? (
+                <div className="py-20 text-center"><i className="fa-solid fa-circle-notch animate-spin text-4xl text-[#ff0095]"></i></div>
+              ) : orders.length === 0 ? (
+                <div className="py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
+                  <i className="fa-solid fa-inbox text-5xl text-gray-100 mb-4"></i>
+                  <p className="font-black text-gray-300 uppercase tracking-widest text-xs">No hay pedidos registrados todavía</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {orders.map((order) => (
+                    <div key={order.id} className="bg-white rounded-[3rem] border overflow-hidden shadow-sm hover:shadow-md transition-all">
+                      {/* Cabecera del Pedido */}
+                      <div className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b bg-gray-50/30">
+                        <div className="flex gap-6 items-start">
+                           <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-2xl shadow-inner ${
+                              order.order_type === 'delivery' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'
+                           }`}>
+                              <i className={order.order_type === 'delivery' ? 'fa-solid fa-motorcycle' : 'fa-solid fa-house-user'}></i>
+                           </div>
+                           <div>
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">#{order.id.slice(-6)}</span>
+                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                  order.order_type === 'delivery' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'
+                                }`}>
+                                  {order.order_type === 'delivery' ? 'DELIVERY' : 'RECOJO'}
+                                </span>
+                              </div>
+                              <h4 className="text-xl font-black text-black uppercase leading-none">{order.customer_name}</h4>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                                {new Date(order.created_at).toLocaleString('es-PE')}
+                              </p>
+                           </div>
+                        </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {products.map(p => (
-                    <div key={p.id} className="bg-white p-6 rounded-[2.5rem] flex items-center justify-between border border-gray-100 group hover:shadow-2xl transition-all">
-                      <div className="flex items-center gap-6">
-                        <img src={p.image_url} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
-                        <div>
-                          <h4 className="font-black brand-font uppercase text-sm leading-tight text-gray-900">{p.name}</h4>
-                          <span className="text-[11px] font-black text-[#ff0095] uppercase tracking-widest">S/ {p.price.toFixed(2)}</span>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <span className="text-[9px] font-black uppercase text-gray-300 block mb-1">Total a cobrar</span>
+                            <span className="text-3xl font-black text-black italic leading-none">S/ {order.total_amount.toFixed(2)}</span>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                             <div className={`px-4 py-4 rounded-2xl text-[9px] font-black uppercase flex items-center border ${
+                                order.status === 'completed' ? 'bg-green-50 border-green-100 text-green-500' : 
+                                order.status === 'cancelled' ? 'bg-red-50 border-red-100 text-red-500' : 'bg-orange-50 border-orange-100 text-orange-500'
+                              }`}>
+                                {order.status === 'pending' ? 'PENDIENTE' : order.status === 'completed' ? 'LISTO' : 'CANCELADO'}
+                             </div>
+                             
+                             {order.status === 'pending' && (
+                               <button onClick={() => updateOrderStatus(order.id, 'completed')} className="w-12 h-12 bg-green-500 text-white rounded-2xl shadow-lg shadow-green-200 hover:scale-110 active:scale-95 transition-all">
+                                 <i className="fa-solid fa-check"></i>
+                               </button>
+                             )}
+                             
+                             <button onClick={() => deleteOrder(order.id)} className="w-12 h-12 bg-gray-50 text-gray-300 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
+                               <i className="fa-solid fa-trash-can text-xs"></i>
+                             </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-3">
-                        <button onClick={() => setEditingProduct(p)} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-black hover:bg-white transition-all shadow-sm"><i className="fa-solid fa-pen"></i></button>
-                        <button onClick={() => deleteProduct(p.id)} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white transition-all shadow-sm"><i className="fa-solid fa-trash"></i></button>
+                      
+                      {/* Detalles del Pedido */}
+                      <div className="p-10 bg-white grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div className="space-y-4">
+                          <h5 className="text-[10px] font-black uppercase tracking-widest text-[#ff0095] border-b border-[#ff0095]/10 pb-2">Platos seleccionados</h5>
+                          <ul className="space-y-4">
+                            {order.items?.map((item, idx) => (
+                              <li key={idx} className="flex justify-between items-center group">
+                                <div className="flex items-center gap-4">
+                                   <span className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center font-black text-xs text-black">{item.quantity}x</span>
+                                   <div>
+                                      <p className="text-sm font-black text-gray-800 uppercase leading-none">{item.product_name}</p>
+                                      {item.variant_name && <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{item.variant_name}</p>}
+                                   </div>
+                                </div>
+                                <span className="text-gray-400 font-black tracking-tighter text-sm italic">S/ {(item.price * item.quantity).toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <h5 className="text-[10px] font-black uppercase tracking-widest text-[#ff0095] border-b border-[#ff0095]/10 pb-2">Logística de entrega</h5>
+                          <div className="bg-gray-50/50 p-6 rounded-3xl border border-dashed border-gray-200">
+                             {order.order_type === 'delivery' ? (
+                               <>
+                                 <span className="text-[8px] font-black text-blue-500 uppercase block mb-1">Destino Delivery</span>
+                                 <p className="text-sm font-bold text-gray-700 leading-relaxed uppercase italic">
+                                   {order.address || 'No se especificó dirección'}
+                                 </p>
+                               </>
+                             ) : (
+                               <>
+                                 <span className="text-[8px] font-black text-purple-500 uppercase block mb-1">Modalidad</span>
+                                 <p className="text-sm font-bold text-gray-700 leading-relaxed uppercase italic">
+                                   EL CLIENTE RECOGE EN EL PUESTO 651
+                                 </p>
+                               </>
+                             )}
+                          </div>
+                          
+                          <a 
+                            href={`https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=Hola ${order.customer_name}, tu pedido #${order.id.slice(-6)} ya está siendo procesado.`}
+                            target="_blank"
+                            className="flex items-center justify-center gap-3 w-full py-4 bg-green-50 text-green-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500 hover:text-white transition-all"
+                          >
+                             <i className="fa-brands fa-whatsapp text-sm"></i> Notificar al cliente
+                          </a>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'branding' && (
+            <div className="space-y-12 max-w-4xl mx-auto animate-reveal">
+               <h3 className="text-[11px] font-black uppercase tracking-widest text-[#ff0095]">Identidad Visual</h3>
+               <div className="flex flex-col md:flex-row gap-12">
+                  <div onClick={() => logoInputRef.current?.click()} className="w-48 h-48 bg-white rounded-3xl border-2 border-dashed flex items-center justify-center overflow-hidden cursor-pointer shadow-sm">
+                    {config.logo_url ? <img src={config.logo_url} className="w-full h-full object-contain p-4" /> : <i className="fa-solid fa-camera text-gray-200"></i>}
+                    <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
+                  </div>
+                  <div className="flex-grow space-y-6">
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Dirección de la tienda</label>
+                       <input type="text" placeholder="Dirección" defaultValue={config.address} onBlur={(e) => handleUpdateConfig({ address: e.target.value })} className="w-full p-5 bg-white rounded-2xl border outline-none focus:border-[#ff0095]" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">WhatsApp Principal</label>
+                         <input type="text" placeholder="WhatsApp" defaultValue={config.whatsapp_number} onBlur={(e) => handleUpdateConfig({ whatsapp_number: e.target.value })} className="w-full p-5 bg-white rounded-2xl border outline-none focus:border-[#ff0095]" />
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Número de Yape</label>
+                         <input type="text" placeholder="Yape" defaultValue={config.yape_number} onBlur={(e) => handleUpdateConfig({ yape_number: e.target.value })} className="w-full p-5 bg-white rounded-2xl border outline-none focus:border-[#ff0095]" />
+                      </div>
+                    </div>
+                  </div>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'products' && (
+            <div className="space-y-8 max-w-5xl mx-auto animate-reveal">
+              <div className="flex justify-between items-center bg-white p-8 rounded-3xl border shadow-sm">
+                <h3 className="text-xl font-black brand-font italic uppercase">Cartilla de Platos</h3>
+                <button onClick={() => setEditingProduct({ is_popular: false, is_combo: false, price: 0 })} className="bg-black text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/20 hover:bg-[#ff0095] transition-all">Agregar Plato</button>
               </div>
-            )}
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {products.map(p => (
+                  <div key={p.id} className="bg-white p-5 rounded-3xl flex items-center justify-between border group hover:shadow-md transition-all">
+                    <div className="flex items-center gap-4">
+                      <img src={p.image_url} className="w-16 h-16 rounded-xl object-cover" />
+                      <div>
+                        <h4 className="font-black text-sm uppercase leading-none">{p.name}</h4>
+                        <p className="text-[#ff0095] font-black text-xs mt-1 italic">S/ {p.price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditingProduct(p)} className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-black transition-all"><i className="fa-solid fa-pen text-xs"></i></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {editingProduct && (
-        <div className="fixed inset-0 z-[700] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in-95 duration-300">
-          <div className="bg-[#fffdf0] w-full max-w-2xl rounded-[4rem] overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
-            <div className="p-10 border-b bg-white flex justify-between items-center">
-              <h2 className="font-black brand-font uppercase text-[#ff0095] text-2xl">Editor de Manjar</h2>
-              <button onClick={() => setEditingProduct(null)} className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-black"><i className="fa-solid fa-xmark text-xl"></i></button>
+        <div className="fixed inset-0 z-[700] bg-black/90 flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-xl rounded-[3rem] p-12 space-y-6 shadow-2xl">
+            <h2 className="font-black brand-font text-2xl uppercase italic text-center">Editar <span className="text-[#ff0095]">Plato</span></h2>
+            <div className="space-y-4">
+               <input type="text" placeholder="Nombre del plato" value={editingProduct.name || ''} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} className="w-full p-5 bg-gray-50 rounded-2xl border outline-none focus:border-[#ff0095]" />
+               <div className="grid grid-cols-2 gap-4">
+                  <input type="number" placeholder="Precio (S/)" value={editingProduct.price || 0} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) })} className="p-5 bg-gray-50 rounded-2xl border outline-none focus:border-[#ff0095]" />
+                  <select value={editingProduct.category_id || ''} onChange={(e) => setEditingProduct({ ...editingProduct, category_id: e.target.value })} className="p-5 bg-gray-50 rounded-2xl border outline-none focus:border-[#ff0095]">
+                     <option value="">Categoría</option>
+                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+               </div>
+               <textarea placeholder="Descripción del plato..." value={editingProduct.description || ''} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} className="w-full p-5 bg-gray-50 rounded-2xl border h-32 resize-none outline-none focus:border-[#ff0095]" />
             </div>
-            <div className="p-10 overflow-y-auto no-scrollbar space-y-8">
-              <div className="flex flex-col items-center gap-6">
-                <div onClick={() => prodImgInputRef.current?.click()} className="w-44 h-44 rounded-[3rem] bg-white border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative cursor-pointer group shadow-sm">
-                  {editingProduct.image_url ? <img src={editingProduct.image_url} className="w-full h-full object-cover" /> : <i className="fa-solid fa-camera text-gray-200 text-3xl"></i>}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest transition-opacity">Subir Foto</div>
-                </div>
-                <input type="file" ref={prodImgInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'product')} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-gray-400 uppercase px-2">Nombre del Plato</label>
-                   <input type="text" placeholder="Ej: Ceviche Malcriado" value={editingProduct.name || ''} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} className="bg-white p-5 rounded-2xl font-bold outline-none w-full border border-gray-100" />
-                </div>
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-gray-400 uppercase px-2">Precio S/</label>
-                   <input type="number" placeholder="0.00" value={editingProduct.price || 0} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) })} className="bg-white p-5 rounded-2xl font-bold outline-none w-full border border-gray-100" />
-                </div>
-              </div>
-              <textarea placeholder="Descripción del sabor..." value={editingProduct.description || ''} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} className="bg-white p-6 rounded-2xl font-bold outline-none h-32 resize-none w-full border border-gray-100" />
-              <select value={editingProduct.category_id || ''} onChange={(e) => setEditingProduct({ ...editingProduct, category_id: e.target.value })} className="w-full bg-white p-5 rounded-2xl font-bold outline-none border border-gray-100">
-                <option value="">Selecciona Categoría</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <div className="flex gap-10 p-8 bg-white rounded-[2rem] shadow-sm border border-gray-50">
-                <label className="flex items-center gap-3 font-black text-[11px] uppercase cursor-pointer text-gray-500 hover:text-[#ff0095] transition-colors"><input type="checkbox" checked={editingProduct.is_popular} onChange={(e) => setEditingProduct({...editingProduct, is_popular: e.target.checked})} className="accent-[#ff0095] w-6 h-6" /> El Favorito</label>
-                <label className="flex items-center gap-3 font-black text-[11px] uppercase cursor-pointer text-gray-500 hover:text-[#ff0095] transition-colors"><input type="checkbox" checked={editingProduct.is_combo} onChange={(e) => setEditingProduct({...editingProduct, is_combo: e.target.checked})} className="accent-[#ff0095] w-6 h-6" /> Es Combo</label>
-              </div>
-            </div>
-            <div className="p-10 border-t bg-white">
-              <button onClick={saveProduct} disabled={saving} className="w-full bg-[#ff0095] text-white py-6 rounded-3xl font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-4">
-                {saving ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                {saving ? 'GUARDANDO...' : 'PUBLICAR PLATO'}
-              </button>
+            <div className="pt-4 space-y-3">
+               <button onClick={saveProduct} disabled={saving} className="w-full bg-[#ff0095] text-white py-5 rounded-2xl font-black uppercase shadow-xl shadow-[#ff0095]/20 hover:scale-[1.02] transition-all">
+                 {saving ? 'Guardando...' : 'Publicar Plato'}
+               </button>
+               <button onClick={() => setEditingProduct(null)} className="w-full py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Cancelar</button>
             </div>
           </div>
         </div>
