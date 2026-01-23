@@ -1,0 +1,52 @@
+
+export interface ItemVariant {
+  id: string;
+  product_id?: string;
+  name: string;
+  price: number;
+}
+
+export interface MenuItem {
+  id: string;
+  category_id?: string;
+  category?: string;
+  name: string;
+  description: string;
+  price: number;
+  image_url: string;
+  is_popular?: boolean;
+  is_combo?: boolean;
+  tags?: string[];
+  variants?: ItemVariant[];
+  combo_items?: string[];
+}
+
+export interface CartItem extends MenuItem {
+  quantity: number;
+  selectedVariant?: ItemVariant;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+}
+
+export interface AppConfig {
+  id: number;
+  logo_url?: string;
+  slide_urls: string[];
+  whatsapp_number: string;
+  yape_number: string;
+  yape_name: string;
+  facebook_url?: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  address?: string;
+  opening_hours?: string;
+}
+
+export interface CustomAssets {
+  logo?: string;
+  slides: string[];
+}

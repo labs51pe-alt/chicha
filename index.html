@@ -1,0 +1,95 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicha - Cevichería Piurana</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@300;400;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-pink: #ff0095;
+            --brand-dark: #000000;
+            --brand-cream: #fdf9c4; /* Color exacto del fondo de tu logo */
+            --brand-bg: #fffef5;
+        }
+        * {
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        body {
+            background-color: var(--brand-bg);
+            color: var(--brand-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+        .brand-font {
+            font-family: 'Playfair Display', serif;
+        }
+        .script-font {
+            font-family: 'Pacifico', cursive;
+        }
+        
+        .glass-header {
+            background: rgba(255, 254, 245, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 2px solid var(--brand-cream);
+        }
+
+        .bg-chicha-cream {
+            background-color: var(--brand-cream);
+        }
+
+        .text-chicha-pink {
+            color: var(--brand-pink);
+        }
+
+        .bg-chicha-pink {
+            background-color: var(--brand-pink);
+        }
+
+        /* Animaciones Premium */
+        @keyframes revealUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-reveal {
+            animation: revealUp 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .premium-card {
+            background-color: white;
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .premium-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,0.1);
+        }
+
+        ::selection {
+            background: var(--brand-pink);
+            color: white;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.4"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>
