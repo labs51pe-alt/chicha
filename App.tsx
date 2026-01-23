@@ -135,7 +135,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Header */}
+      {/* Header Premium */}
       <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-4 shadow-sm' : 'bg-transparent py-10'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
         <div className="max-w-7xl mx-auto px-8 md:px-12 flex items-center justify-between">
           <div className="cursor-pointer group flex items-center gap-4" onClick={handleLogoClick}>
@@ -165,7 +165,7 @@ const App: React.FC = () => {
       </header>
 
       <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-56 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
-        {/* Hero */}
+        {/* Hero Section */}
         <div className="mb-24 flex flex-col lg:flex-row lg:items-end justify-between gap-16">
             <div className="max-w-2xl animate-reveal">
                 <div className="w-16 h-[4px] bg-[#ff0095] mb-10 rounded-full"></div>
@@ -213,7 +213,7 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* Listado */}
+        {/* Grid de Productos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 mb-24">
           {filteredMenu.length > 0 ? filteredMenu.map((item, idx) => (
             <div key={item.id} style={{ animationDelay: `${idx * 0.05}s` }}>
@@ -232,55 +232,53 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer Minimalista, Delgado e Interactivo */}
-      <footer className={`bg-[#fdf9c4]/30 border-t border-[#fdf9c4] py-8 transition-all duration-700 ${showWelcome ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="max-w-7xl mx-auto px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4">
+      <footer className={`bg-[#fdf9c4]/40 border-t border-[#fdf9c4] py-10 transition-all duration-700 ${showWelcome ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="max-w-7xl mx-auto px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-10 md:gap-4">
            
-           {/* Logo (Grande e Interactivo) */}
+           {/* Logo (Grande e Impactante) */}
            <div className="flex flex-col items-center md:items-start group cursor-pointer" onClick={handleLogoClick}>
               {appConfig.logo_url ? (
-                <img src={appConfig.logo_url} className="h-14 md:h-16 object-contain transition-transform group-hover:scale-110" alt="Footer Logo" />
+                <img src={appConfig.logo_url} className="h-20 md:h-24 object-contain transition-transform group-hover:scale-105" alt="Chicha Footer Logo" />
               ) : (
-                <h2 className="script-font text-4xl text-black">Chicha</h2>
+                <h2 className="script-font text-5xl text-black">Chicha</h2>
               )}
-              <span className="text-[7px] font-black uppercase tracking-[0.4em] text-[#ff0095] mt-1">Cevichería Piurana</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#ff0095] mt-2">Sabor Piurano A1</span>
            </div>
 
-           {/* Dirección Central Destacada */}
+           {/* Dirección Central Exacta */}
            <div className="flex flex-col items-center text-center">
-              <span className="text-[9px] font-black uppercase tracking-[0.5em] text-black/40 mb-1">Visítanos</span>
-              <p className="brand-font text-base md:text-xl text-black font-bold italic tracking-tight">
-                {appConfig.address || 'Mercado 2 de Surquillo puesto 651.'}
+              <span className="text-[10px] font-black uppercase tracking-[0.6em] text-black/30 mb-2">Visítanos</span>
+              <p className="brand-font text-lg md:text-2xl text-black font-black italic tracking-tighter leading-tight">
+                Mercado 2 de Surquillo puesto 651.
               </p>
+              <div className="w-12 h-0.5 bg-[#ff0095]/20 mt-3 rounded-full"></div>
            </div>
 
-           {/* Redes Sociales Interactivas */}
-           <div className="flex items-center gap-5">
-              {appConfig.whatsapp_number && (
-                <a href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}`} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
-                  <i className="fa-brands fa-whatsapp text-lg"></i>
-                </a>
-              )}
+           {/* Redes Sociales del Footer (Botones Circulares Premium) */}
+           <div className="flex items-center gap-6">
               {appConfig.instagram_url && (
-                <a href={appConfig.instagram_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
-                  <i className="fa-brands fa-instagram text-lg"></i>
+                <a href={appConfig.instagram_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
+                  <i className="fa-brands fa-instagram text-xl"></i>
                 </a>
               )}
               {appConfig.facebook_url && (
-                <a href={appConfig.facebook_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
-                  <i className="fa-brands fa-facebook text-lg"></i>
+                <a href={appConfig.facebook_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
+                  <i className="fa-brands fa-facebook text-xl"></i>
                 </a>
               )}
               {appConfig.tiktok_url && (
-                <a href={appConfig.tiktok_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
-                  <i className="fa-brands fa-tiktok text-lg"></i>
+                <a href={appConfig.tiktok_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
+                  <i className="fa-brands fa-tiktok text-xl"></i>
                 </a>
               )}
            </div>
         </div>
         
-        {/* Línea Final de Copyright */}
-        <div className="max-w-7xl mx-auto px-8 md:px-12 mt-8 pt-4 border-t border-black/5 text-center">
-          <p className="text-[7px] font-bold text-black/20 uppercase tracking-[0.8em]">CHICHA EXPERIENCIA NORTEÑA • {new Date().getFullYear()}</p>
+        {/* Créditos Finales */}
+        <div className="max-w-7xl mx-auto px-8 md:px-12 mt-12 pt-6 border-t border-black/5 text-center">
+          <p className="text-[8px] font-black text-black/20 uppercase tracking-[1em]">
+            CHICHA EXPERIENCIA NORTEÑA • {new Date().getFullYear()}
+          </p>
         </div>
       </footer>
 
