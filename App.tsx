@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [selectedItemForModal, setSelectedItemForModal] = useState<MenuItem | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [logoClicks, setLogoClicks] = useState(0);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<MenuItem[]>([]);
@@ -31,7 +32,7 @@ const App: React.FC = () => {
     instagram_url: '',
     facebook_url: '',
     tiktok_url: '',
-    address: 'Mercado 2 Surquillo',
+    address: 'Mercado 2 de Surquillo puesto 651.',
     opening_hours: '10:00 AM - 5:00 PM'
   });
 
@@ -74,6 +75,19 @@ const App: React.FC = () => {
     });
   }, [selectedCategory, searchQuery, products]);
 
+  const handleLogoClick = () => {
+    setLogoClicks(prev => {
+      const newCount = prev + 1;
+      if (newCount >= 3) {
+        setIsAdminOpen(true);
+        return 0;
+      }
+      return newCount;
+    });
+    const timer = setTimeout(() => setLogoClicks(0), 2000);
+    return () => clearTimeout(timer);
+  };
+
   const addToCart = (item: MenuItem, variant?: ItemVariant, quantity: number = 1) => {
     setCartItems(prev => {
       const existing = prev.find(i => i.id === item.id && (i.selectedVariant?.id === variant?.id || (!i.selectedVariant && !variant)));
@@ -114,17 +128,19 @@ const App: React.FC = () => {
           socials={{
             instagram: appConfig.instagram_url,
             facebook: appConfig.facebook_url,
-            tiktok: appConfig.tiktok_url
+            tiktok: appConfig.tiktok_url,
+            whatsapp: appConfig.whatsapp_number
           }}
+          onLogoClick={handleLogoClick}
         />
       )}
 
-      {/* Header Premium con Colores del Logo */}
-      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-4' : 'bg-transparent py-10'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
+      {/* Header */}
+      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-4 shadow-sm' : 'bg-transparent py-10'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
         <div className="max-w-7xl mx-auto px-8 md:px-12 flex items-center justify-between">
-          <div className="cursor-pointer group flex items-center gap-4" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+          <div className="cursor-pointer group flex items-center gap-4" onClick={handleLogoClick}>
             {appConfig.logo_url ? (
-              <img src={appConfig.logo_url} className={`transition-all duration-700 ${scrolled ? 'h-10' : 'h-16'} object-contain filter brightness-0`} />
+              <img src={appConfig.logo_url} className={`transition-all duration-700 ${scrolled ? 'h-10' : 'h-16'} object-contain`} alt="Chicha Logo" />
             ) : (
               <div className="flex flex-col">
                 <h1 className={`script-font transition-all duration-700 ${scrolled ? 'text-3xl' : 'text-5xl'} text-black leading-none`}>Chicha</h1>
@@ -148,9 +164,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-56 pb-40 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
-        
-        {/* Hero Section con Playfair Display y colores de Marca */}
+      <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-56 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
+        {/* Hero */}
         <div className="mb-24 flex flex-col lg:flex-row lg:items-end justify-between gap-16">
             <div className="max-w-2xl animate-reveal">
                 <div className="w-16 h-[4px] bg-[#ff0095] mb-10 rounded-full"></div>
@@ -180,7 +195,7 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* Categorías Premium usando el color crema del logo */}
+        {/* Categorías */}
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-10 mb-20 border-b-2 border-[#fdf9c4] animate-reveal" style={{animationDelay: '0.4s'}}>
           {categories.map((cat) => (
             <button
@@ -198,8 +213,8 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* Grid de Productos con Tarjetas Premium */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
+        {/* Listado */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 mb-24">
           {filteredMenu.length > 0 ? filteredMenu.map((item, idx) => (
             <div key={item.id} style={{ animationDelay: `${idx * 0.05}s` }}>
               <MenuItemCard 
@@ -216,17 +231,75 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Botón Admin Discreto */}
+      {/* Footer Minimalista, Delgado e Interactivo */}
+      <footer className={`bg-[#fdf9c4]/30 border-t border-[#fdf9c4] py-8 transition-all duration-700 ${showWelcome ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="max-w-7xl mx-auto px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4">
+           
+           {/* Logo (Grande e Interactivo) */}
+           <div className="flex flex-col items-center md:items-start group cursor-pointer" onClick={handleLogoClick}>
+              {appConfig.logo_url ? (
+                <img src={appConfig.logo_url} className="h-14 md:h-16 object-contain transition-transform group-hover:scale-110" alt="Footer Logo" />
+              ) : (
+                <h2 className="script-font text-4xl text-black">Chicha</h2>
+              )}
+              <span className="text-[7px] font-black uppercase tracking-[0.4em] text-[#ff0095] mt-1">Cevichería Piurana</span>
+           </div>
+
+           {/* Dirección Central Destacada */}
+           <div className="flex flex-col items-center text-center">
+              <span className="text-[9px] font-black uppercase tracking-[0.5em] text-black/40 mb-1">Visítanos</span>
+              <p className="brand-font text-base md:text-xl text-black font-bold italic tracking-tight">
+                {appConfig.address || 'Mercado 2 de Surquillo puesto 651.'}
+              </p>
+           </div>
+
+           {/* Redes Sociales Interactivas */}
+           <div className="flex items-center gap-5">
+              {appConfig.whatsapp_number && (
+                <a href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}`} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
+                  <i className="fa-brands fa-whatsapp text-lg"></i>
+                </a>
+              )}
+              {appConfig.instagram_url && (
+                <a href={appConfig.instagram_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
+                  <i className="fa-brands fa-instagram text-lg"></i>
+                </a>
+              )}
+              {appConfig.facebook_url && (
+                <a href={appConfig.facebook_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
+                  <i className="fa-brands fa-facebook text-lg"></i>
+                </a>
+              )}
+              {appConfig.tiktok_url && (
+                <a href={appConfig.tiktok_url} target="_blank" className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-1 shadow-md">
+                  <i className="fa-brands fa-tiktok text-lg"></i>
+                </a>
+              )}
+           </div>
+        </div>
+        
+        {/* Línea Final de Copyright */}
+        <div className="max-w-7xl mx-auto px-8 md:px-12 mt-8 pt-4 border-t border-black/5 text-center">
+          <p className="text-[7px] font-bold text-black/20 uppercase tracking-[0.8em]">CHICHA EXPERIENCIA NORTEÑA • {new Date().getFullYear()}</p>
+        </div>
+      </footer>
+
+      {/* Botón Flotante de Ayuda WhatsApp */}
       {!showWelcome && (
-        <button 
-          onClick={() => setIsAdminOpen(true)}
-          className="fixed bottom-12 right-12 w-14 h-14 bg-[#fdf9c4] text-black rounded-full flex items-center justify-center transition-all duration-500 z-[150] shadow-xl hover:bg-[#ff0095] hover:text-white"
+        <a 
+          href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}?text=Hola Chicha! Necesito ayuda con mi pedido.`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-8 right-8 w-16 h-16 bg-[#ff0095] text-white rounded-full flex items-center justify-center transition-all duration-500 z-[150] shadow-[0_20px_40px_-10px_rgba(255,0,149,0.5)] hover:scale-110 active:scale-95 group"
         >
-          <i className="fa-solid fa-gear text-lg"></i>
-        </button>
+          <i className="fa-brands fa-whatsapp text-3xl"></i>
+          <span className="absolute right-full mr-4 bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+            ¿Necesitas ayuda?
+          </span>
+        </a>
       )}
 
-      {/* Modales con Acentos de Marca */}
+      {/* Modales */}
       <ItemDetailModal item={selectedItemForModal} onClose={() => setSelectedItemForModal(null)} onAddToCart={addToCart} />
       
       <Cart 

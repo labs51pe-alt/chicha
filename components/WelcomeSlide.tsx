@@ -9,10 +9,12 @@ interface WelcomeSlideProps {
     instagram?: string;
     facebook?: string;
     tiktok?: string;
+    whatsapp?: string;
   };
+  onLogoClick?: () => void;
 }
 
-export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo, customSlides, socials }) => {
+export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo, customSlides, socials, onLogoClick }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -64,7 +66,7 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
             : 'scale-95 opacity-0'
         }`}>
           
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-8 cursor-pointer" onClick={onLogoClick}>
             {customLogo ? (
               <img src={customLogo} className="h-44 md:h-64 object-contain filter brightness-0" alt="Chicha Logo" />
             ) : (
@@ -103,10 +105,20 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
       </div>
 
       {/* Social Links */}
-      <div className={`absolute bottom-10 left-0 right-0 flex justify-center gap-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute bottom-10 left-0 right-0 flex justify-center gap-8 md:gap-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        {socials?.whatsapp && (
+          <a href={`https://wa.me/${socials.whatsapp.replace(/\D/g, '')}`} target="_blank" className="text-white/40 hover:text-[#ff0095] transition-all transform hover:scale-125">
+            <i className="fa-brands fa-whatsapp text-2xl"></i>
+          </a>
+        )}
         {socials?.instagram && (
           <a href={socials.instagram} target="_blank" className="text-white/40 hover:text-[#ff0095] transition-all transform hover:scale-125">
             <i className="fa-brands fa-instagram text-2xl"></i>
+          </a>
+        )}
+        {socials?.facebook && (
+          <a href={socials.facebook} target="_blank" className="text-white/40 hover:text-[#ff0095] transition-all transform hover:scale-125">
+            <i className="fa-brands fa-facebook text-2xl"></i>
           </a>
         )}
         {socials?.tiktok && (
