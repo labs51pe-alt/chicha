@@ -137,28 +137,31 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Header Premium */}
-      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-4 shadow-sm' : 'bg-transparent py-10'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
+      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-3 shadow-md' : 'bg-transparent py-8 md:py-12'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
         <div className="max-w-7xl mx-auto px-8 md:px-12 flex items-center justify-between">
           <div className="cursor-pointer group flex items-center gap-4" onClick={handleLogoClick}>
             {appConfig.logo_url ? (
-              <img src={appConfig.logo_url} className={`transition-all duration-700 ${scrolled ? 'h-10' : 'h-16'} object-contain`} alt="Chicha Logo" />
+              <img 
+                src={appConfig.logo_url} 
+                className={`transition-all duration-700 ${scrolled ? 'h-16 md:h-20' : 'h-28 md:h-40'} object-contain drop-shadow-2xl`} 
+                alt="Chicha Logo" 
+              />
             ) : (
               <div className="flex flex-col">
-                <h1 className={`script-font transition-all duration-700 ${scrolled ? 'text-3xl' : 'text-5xl'} text-black leading-none`}>Chicha</h1>
-                <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[#ff0095]">Cevichería Piurana</span>
+                <h1 className={`script-font transition-all duration-700 ${scrolled ? 'text-4xl' : 'text-7xl'} text-black leading-none`}>Chicha</h1>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#ff0095]">Cevichería Piurana</span>
               </div>
             )}
           </div>
 
           <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-black text-white px-8 py-4 rounded-2xl flex items-center gap-5 hover:bg-[#ff0095] transition-all duration-500 shadow-2xl active:scale-95 group"
+              className="relative bg-black text-white px-8 py-5 rounded-[2rem] flex items-center gap-5 hover:bg-[#ff0095] transition-all duration-500 shadow-2xl active:scale-95 group"
           >
-              <i className="fa-solid fa-cart-shopping text-xs group-hover:rotate-12 transition-transform"></i>
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] hidden md:block">Mi Canasta</span>
+              <i className="fa-solid fa-cart-shopping text-sm group-hover:rotate-12 transition-transform"></i>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] hidden md:block">Mi Canasta</span>
               {totalItemsCount > 0 && (
-                  <span className="bg-[#ff0095] text-white w-6 h-6 rounded-xl flex items-center justify-center font-black text-[10px] shadow-lg">
+                  <span className="bg-[#ff0095] text-white w-7 h-7 rounded-2xl flex items-center justify-center font-black text-[12px] shadow-lg">
                       {totalItemsCount}
                   </span>
               )}
@@ -166,39 +169,36 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-56 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
-        {/* Hero Section */}
+      <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-64 md:pt-80 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
         <div className="mb-24 flex flex-col lg:flex-row lg:items-end justify-between gap-16">
             <div className="max-w-2xl animate-reveal">
                 <div className="w-16 h-[4px] bg-[#ff0095] mb-10 rounded-full"></div>
-                <h2 className="brand-font text-6xl md:text-8xl font-black mb-8 tracking-tighter leading-[0.9] text-black">
-                  Explora nuestro <br/>
-                  <span className="text-[#ff0095] italic">Menú</span>
+                <h2 className="brand-font text-6xl md:text-8xl font-black mb-8 tracking-tighter leading-[0.9] text-black uppercase italic">
+                  Carta de <br/>
+                  <span className="text-[#ff0095]">Sabor</span>
                 </h2>
                 <p className="text-gray-500 text-xl font-medium leading-relaxed tracking-tight border-l-4 border-[#fdf9c4] pl-6 italic">
                   "El sabor del norte que conquistó la capital."
                 </p>
             </div>
             
-            <div className="w-full lg:w-[450px] space-y-4 animate-reveal" style={{animationDelay: '0.2s'}}>
-               <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 px-2 block">Buscador Inteligente</label>
+            <div className="w-full lg:w-[450px] animate-reveal" style={{animationDelay: '0.2s'}}>
                <div className="relative group">
                   <input 
                     type="text" 
-                    placeholder="Escribe el nombre de un plato..." 
+                    placeholder="Busca tu antojo..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-[#fdf9c4]/30 px-8 py-6 rounded-[2rem] outline-none border-2 border-transparent focus:border-[#ff0095]/20 focus:bg-white font-bold transition-all duration-500 text-sm italic"
+                    className="w-full bg-[#fdf9c4]/30 px-8 py-6 rounded-[2.5rem] outline-none border-2 border-transparent focus:border-[#ff0095]/20 focus:bg-white font-bold transition-all duration-500 text-sm italic"
                   />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center group-focus-within:bg-[#ff0095] transition-all duration-500">
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center">
                     <i className="fa-solid fa-magnifying-glass text-[10px]"></i>
                   </div>
                </div>
             </div>
         </div>
 
-        {/* Categorías */}
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-10 mb-20 border-b-2 border-[#fdf9c4] animate-reveal" style={{animationDelay: '0.4s'}}>
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-10 mb-20 border-b-2 border-[#fdf9c4]">
           {categories.map((cat) => (
             <button
               key={cat.id}
@@ -215,111 +215,45 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* Grid de Productos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 mb-24">
           {filteredMenu.length > 0 ? filteredMenu.map((item, idx) => (
-            <div key={item.id} style={{ animationDelay: `${idx * 0.05}s` }}>
-              <MenuItemCard 
-                item={item} 
-                onAddToCart={() => setSelectedItemForModal(item)} 
-                onShowDetails={() => setSelectedItemForModal(item)} 
-              />
-            </div>
+            <MenuItemCard key={item.id} item={item} onAddToCart={() => setSelectedItemForModal(item)} onShowDetails={() => setSelectedItemForModal(item)} />
           )) : (
-            <div className="col-span-full py-40 text-center">
-               <p className="font-black text-black/10 uppercase tracking-[1em] text-[10px]">Sin resultados</p>
-            </div>
+            <div className="col-span-full py-40 text-center opacity-20 font-black uppercase tracking-[1em] text-[10px]">Sin resultados</div>
           )}
         </div>
       </main>
 
-      {/* Footer Minimalista, Delgado e Interactivo */}
-      <footer className={`bg-[#fdf9c4]/40 border-t border-[#fdf9c4] py-10 transition-all duration-700 ${showWelcome ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="max-w-7xl mx-auto px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-10 md:gap-4">
-           
-           {/* Logo (Grande e Impactante) */}
+      <footer className="bg-[#fdf9c4]/40 border-t border-[#fdf9c4] py-16">
+        <div className="max-w-7xl mx-auto px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-12">
            <div className="flex flex-col items-center md:items-start group cursor-pointer" onClick={handleLogoClick}>
-              {appConfig.logo_url ? (
-                <img src={appConfig.logo_url} className="h-20 md:h-24 object-contain transition-transform group-hover:scale-105" alt="Chicha Footer Logo" />
-              ) : (
-                <h2 className="script-font text-5xl text-black">Chicha</h2>
-              )}
-              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#ff0095] mt-2">Sabor Piurano A1</span>
+              {appConfig.logo_url ? <img src={appConfig.logo_url} className="h-24 md:h-32 object-contain" /> : <h2 className="script-font text-6xl">Chicha</h2>}
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#ff0095] mt-4">Sabor Piurano en Lima</span>
            </div>
-
-           {/* Dirección Central Exacta */}
-           <div className="flex flex-col items-center text-center">
-              <span className="text-[10px] font-black uppercase tracking-[0.6em] text-black/30 mb-2">Visítanos</span>
-              <p className="brand-font text-lg md:text-2xl text-black font-black italic tracking-tighter leading-tight">
-                Mercado 2 de Surquillo puesto 651.
-              </p>
-              <div className="w-12 h-0.5 bg-[#ff0095]/20 mt-3 rounded-full"></div>
+           <div className="text-center md:text-left">
+              <span className="text-[9px] font-black uppercase tracking-[0.5em] text-black/30 mb-4 block">Encuéntranos</span>
+              <p className="brand-font text-2xl font-black italic tracking-tighter">{appConfig.address}</p>
            </div>
-
-           {/* Redes Sociales del Footer (Botones Circulares Premium) */}
-           <div className="flex items-center gap-6">
-              {appConfig.instagram_url && (
-                <a href={appConfig.instagram_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
-                  <i className="fa-brands fa-instagram text-xl"></i>
-                </a>
-              )}
-              {appConfig.facebook_url && (
-                <a href={appConfig.facebook_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
-                  <i className="fa-brands fa-facebook text-xl"></i>
-                </a>
-              )}
-              {appConfig.tiktok_url && (
-                <a href={appConfig.tiktok_url} target="_blank" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all transform hover:-translate-y-2 shadow-xl">
-                  <i className="fa-brands fa-tiktok text-xl"></i>
-                </a>
-              )}
+           <div className="flex gap-6">
+              {appConfig.instagram_url && <a href={appConfig.instagram_url} target="_blank" className="w-14 h-14 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all"><i className="fa-brands fa-instagram text-2xl"></i></a>}
+              {appConfig.tiktok_url && <a href={appConfig.tiktok_url} target="_blank" className="w-14 h-14 bg-black text-white rounded-full flex items-center justify-center hover:bg-[#ff0095] transition-all"><i className="fa-brands fa-tiktok text-2xl"></i></a>}
            </div>
-        </div>
-        
-        {/* Créditos Finales */}
-        <div className="max-w-7xl mx-auto px-8 md:px-12 mt-12 pt-6 border-t border-black/5 text-center">
-          <p className="text-[8px] font-black text-black/20 uppercase tracking-[1em]">
-            CHICHA EXPERIENCIA NORTEÑA • {new Date().getFullYear()}
-          </p>
         </div>
       </footer>
 
-      {/* Botón Flotante de Ayuda WhatsApp */}
-      {!showWelcome && (
-        <a 
-          href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}?text=Hola Chicha! Necesito ayuda con mi pedido.`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-8 right-8 w-16 h-16 bg-[#ff0095] text-white rounded-full flex items-center justify-center transition-all duration-500 z-[150] shadow-[0_20px_40px_-10px_rgba(255,0,149,0.5)] hover:scale-110 active:scale-95 group"
-        >
-          <i className="fa-brands fa-whatsapp text-3xl"></i>
-          <span className="absolute right-full mr-4 bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            ¿Necesitas ayuda?
-          </span>
-        </a>
-      )}
+      {/* Botón Flotante de Ayuda WhatsApp - Z-INDEX MAXIMIZADO PARA EVITAR QUE SE CUBRA */}
+      <a 
+        href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola Chicha! Necesito ayuda con mi pedido 🌶️')}`} 
+        target="_blank" 
+        className="fixed bottom-6 right-6 w-16 h-16 bg-[#25d366] text-white rounded-full flex items-center justify-center shadow-[0_10px_40px_rgba(37,211,102,0.6)] z-[9999] hover:scale-110 active:scale-95 transition-all animate-bounce hover:animate-none"
+        aria-label="Ayuda por WhatsApp"
+      >
+        <i className="fa-brands fa-whatsapp text-3xl"></i>
+      </a>
 
-      {/* Modales */}
       <ItemDetailModal item={selectedItemForModal} onClose={() => setSelectedItemForModal(null)} onAddToCart={addToCart} />
-      
-      <Cart 
-        isOpen={isCartOpen} 
-        onToggle={() => setIsCartOpen(false)} 
-        items={cartItems} 
-        onRemove={(id, vId) => updateQuantity(id, -99, vId)} 
-        onUpdateQuantity={updateQuantity} 
-        onClearCart={clearCart}
-        whatsappNumber={appConfig.whatsapp_number} 
-      />
-      
-      <AdminPanel 
-        isOpen={isAdminOpen} 
-        onClose={() => setIsAdminOpen(false)} 
-        categories={categories.filter(c => c.id !== 'todo')}
-        products={products}
-        config={appConfig}
-        onRefresh={() => fetchInitialData()}
-      />
+      <Cart isOpen={isCartOpen} onToggle={() => setIsCartOpen(false)} items={cartItems} onRemove={(id, vId) => updateQuantity(id, -99, vId)} onUpdateQuantity={updateQuantity} onClearCart={clearCart} whatsappNumber={appConfig.whatsapp_number} />
+      <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} categories={categories.filter(c => c.id !== 'todo')} products={products} config={appConfig} onRefresh={() => fetchInitialData()} />
     </div>
   );
 };

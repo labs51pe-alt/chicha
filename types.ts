@@ -39,6 +39,8 @@ export interface AppConfig {
   whatsapp_number: string;
   yape_number: string;
   yape_name: string;
+  plin_number?: string;
+  plin_name?: string;
   facebook_url?: string;
   instagram_url?: string;
   tiktok_url?: string;
@@ -59,9 +61,10 @@ export interface Order {
   id: string;
   customer_name: string;
   order_type: 'delivery' | 'pickup';
+  payment_method: 'yape' | 'plin' | 'efectivo';
   address?: string;
   total_amount: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'ready' | 'completed' | 'cancelled';
   created_at: string;
   items?: OrderItem[];
 }

@@ -15,6 +15,7 @@ interface CartProps {
 }
 
 type OrderType = 'delivery' | 'pickup';
+type PaymentMethod = 'yape' | 'plin' | 'efectivo';
 
 export const Cart: React.FC<CartProps> = ({
   items,
@@ -26,9 +27,10 @@ export const Cart: React.FC<CartProps> = ({
   whatsappNumber
 }) => {
   const [orderType, setOrderType] = useState<OrderType>('pickup');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('yape');
   const [address, setAddress] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [hasCopiedYape, setHasCopiedYape] = useState(false);
+  const [hasCopiedPayment, setHasCopiedPayment] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -38,28 +40,28 @@ export const Cart: React.FC<CartProps> = ({
     return sum + price * item.quantity;
   }, 0);
 
-  const handleCopyYape = () => {
+  const handleCopyPayment = (number: string) => {
     setIsCopying(true);
-    const yapeNum = APP_CONFIG.yapeNumber;
-    navigator.clipboard.writeText(yapeNum);
+    navigator.clipboard.writeText(number);
     setTimeout(() => {
-      setHasCopiedYape(true);
+      setHasCopiedPayment(true);
       setIsCopying(false);
     }, 600);
   };
 
   const handleWhatsAppOrder = async () => {
-    if (!hasCopiedYape || isSubmitting) return;
+    if ((paymentMethod !== 'efectivo' && !hasCopiedPayment) || isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
-      // 1. Guardar en Supabase - Aparece INMEDIATAMENTE en la gestión
+      // 1. Guardar en Supabase - Persistencia en la nube
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
           customer_name: customerName,
           order_type: orderType,
+          payment_method: paymentMethod,
           address: orderType === 'delivery' ? address : null,
           total_amount: total,
           status: 'pending'
@@ -83,8 +85,9 @@ export const Cart: React.FC<CartProps> = ({
 
       if (itemsError) throw itemsError;
 
-      // 2. Generar mensaje de WhatsApp EXACTO
+      // 2. Mensaje de WhatsApp
       const typeLabel = orderType === 'delivery' ? '🛵 DELIVERY' : '🏠 RECOJO';
+      const payLabel = paymentMethod.toUpperCase();
       const separator = '--------------------------------';
       const itemsText = items.map(item =>
           `• ${item.quantity}x ${item.name}${item.selectedVariant ? ` (${item.selectedVariant.name})` : ''}`
@@ -93,31 +96,27 @@ export const Cart: React.FC<CartProps> = ({
       const message = encodeURIComponent(
         `Habla Chicha! 🌶️ Soy *${customerName || 'Cliente'}* 😎\n` +
         `MODALIDAD: ${typeLabel}\n` +
+        `PAGO: ${payLabel}\n` +
         `${separator}\n` +
         `📋 MI PEDIDO:\n` +
         `${itemsText}\n` +
         `${separator}\n` +
         `💰 TOTAL: S/ ${total.toFixed(2)}\n` +
         `${separator}\n` +
-        `✅ ¡Confirmado! Ya copié el número para pagar, ¡métele limon y aji a mi pedido!`
+        `✅ ¡Confirmado! ¡Métele limon y aji a mi pedido!`
       );
 
-      const cleanNumber = whatsappNumber.replace(/\D/g, '');
+      window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${message}`, '_blank');
       
-      // 3. Abrir WhatsApp y marcar éxito local
-      window.open(`https://wa.me/${cleanNumber}?text=${message}`, '_blank');
-      
-      // Limpiamos todo para que pueda pedir más
       setOrderSuccess(true);
       onClearCart();
       setCustomerName('');
       setAddress('');
-      setHasCopiedYape(false);
+      setHasCopiedPayment(false);
 
     } catch (error) {
       console.error("Error saving order:", error);
-      alert("Error al registrar, pero abriremos WhatsApp.");
-      window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=Pedido de ${customerName}`, '_blank');
+      alert("Error al registrar el pedido.");
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +131,8 @@ export const Cart: React.FC<CartProps> = ({
     customerName.trim().length >= 2 &&
     (orderType === 'pickup' || (orderType === 'delivery' && address.trim().length >= 5));
 
-  const canSubmit = isFormValid && hasCopiedYape && !isSubmitting;
+  const needsCopy = paymentMethod !== 'efectivo';
+  const canSubmit = isFormValid && (!needsCopy || hasCopiedPayment) && !isSubmitting;
 
   if (!isOpen) return null;
 
@@ -140,22 +140,16 @@ export const Cart: React.FC<CartProps> = ({
     <div className="fixed inset-0 z-[110] flex items-center justify-end bg-black/80 backdrop-blur-sm transition-all duration-500">
       <div className="bg-[#fffef5] w-full max-w-md h-full flex flex-col shadow-2xl border-l-4 border-[#fdf9c4] relative">
         
-        {/* Pantalla de Éxito */}
         {orderSuccess ? (
           <div className="flex-grow flex flex-col items-center justify-center p-12 text-center animate-reveal">
             <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center text-4xl mb-8 shadow-2xl shadow-green-200">
               <i className="fa-solid fa-check"></i>
             </div>
-            <h2 className="brand-font text-4xl font-black italic uppercase italic mb-4 leading-none">¡Pedido <span className="text-[#ff0095]">Realizado!</span></h2>
+            <h2 className="brand-font text-4xl font-black italic uppercase mb-4 leading-none">¡Pedido <span className="text-[#ff0095]">Realizado!</span></h2>
             <p className="text-gray-400 text-sm font-bold uppercase tracking-widest leading-relaxed mb-12">
               Ya enviamos tu pedido a WhatsApp.<br/>¡Ahorita te atendemos, churre!
             </p>
-            <button 
-              onClick={handleClose}
-              className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all"
-            >
-              Seguir pidiendo
-            </button>
+            <button onClick={handleClose} className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all">Seguir pidiendo</button>
           </div>
         ) : (
           <>
@@ -179,7 +173,7 @@ export const Cart: React.FC<CartProps> = ({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="flex p-1 bg-[#fdf9c4]/20 rounded-2xl">
                       <button onClick={() => setOrderType('pickup')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${orderType === 'pickup' ? 'bg-black text-white' : 'text-gray-400'}`}>🏠 Recojo</button>
                       <button onClick={() => setOrderType('delivery')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${orderType === 'delivery' ? 'bg-black text-white' : 'text-gray-400'}`}>🛵 Delivery</button>
@@ -189,7 +183,7 @@ export const Cart: React.FC<CartProps> = ({
                       <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">¿Quién pide?</label>
                       <input 
                         type="text" 
-                        placeholder="Tu nombre (Ej: Luis Garcia)" 
+                        placeholder="Tu nombre completo" 
                         value={customerName} 
                         onChange={(e) => setCustomerName(e.target.value)} 
                         className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold transition-all uppercase focus:border-[#ff0095]" 
@@ -198,44 +192,49 @@ export const Cart: React.FC<CartProps> = ({
 
                     {orderType === 'delivery' && (
                       <div className="space-y-1 animate-reveal">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">¿A dónde lo llevamos?</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Dirección de entrega</label>
                         <textarea 
-                          placeholder="Dirección exacta para el delivery..." 
+                          placeholder="Calle, número, referencia..." 
                           value={address} 
                           onChange={(e) => setAddress(e.target.value)} 
-                          className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold h-24 resize-none transition-all uppercase focus:border-[#ff0095]" 
+                          className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold h-20 resize-none transition-all uppercase focus:border-[#ff0095]" 
                         />
                       </div>
                     )}
+
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Método de Pago</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['yape', 'plin', 'efectivo'] as PaymentMethod[]).map(m => (
+                          <button 
+                            key={m} 
+                            onClick={() => { setPaymentMethod(m); setHasCopiedPayment(false); }}
+                            className={`py-3 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${paymentMethod === m ? 'border-black bg-black text-white' : 'border-[#fdf9c4] text-gray-400'}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Sección de Pago */}
-                  <div className={`space-y-6 transition-all duration-500 ${isFormValid ? 'opacity-100' : 'opacity-20 pointer-events-none translate-y-4'}`}>
-                    <div className="bg-[#fdf9c4] p-8 rounded-[2.5rem] border-2 border-[#ff0095]/10 shadow-xl text-center">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff0095] block mb-6 italic">Paso Obligatorio: Paga con Yape</span>
-                        
-                        <div className="flex flex-col items-center mb-8">
-                            <span className="text-[10px] font-bold text-black/40 uppercase mb-1">Total a Pagar</span>
-                            <span className="text-5xl font-black brand-font tracking-tighter text-black uppercase italic">S/ {total.toFixed(2)}</span>
+                  {needsCopy && isFormValid && (
+                    <div className="bg-[#fdf9c4] p-8 rounded-[2.5rem] border-2 border-[#ff0095]/10 shadow-xl text-center animate-reveal">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff0095] block mb-4 italic">Paga con {paymentMethod.toUpperCase()}</span>
+                        <div className="flex flex-col items-center mb-6">
+                            <span className="text-4xl font-black brand-font text-black italic">S/ {total.toFixed(2)}</span>
                         </div>
 
                         <button 
-                          onClick={handleCopyYape}
-                          className={`w-full py-5 rounded-2xl flex items-center justify-center gap-4 transition-all duration-500 font-black uppercase tracking-widest text-xs ${
-                            hasCopiedYape ? 'bg-green-500 text-white shadow-green-200' : 'bg-black text-white hover:bg-[#ff0095]'
+                          onClick={() => handleCopyPayment(paymentMethod === 'yape' ? APP_CONFIG.yapeNumber : (APP_CONFIG as any).plinNumber || APP_CONFIG.yapeNumber)}
+                          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-black uppercase text-[10px] tracking-widest ${
+                            hasCopiedPayment ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-[#ff0095]'
                           }`}
                         >
-                          {isCopying ? (
-                            <i className="fa-solid fa-circle-notch animate-spin"></i>
-                          ) : hasCopiedYape ? (
-                            <><i className="fa-solid fa-check"></i> ¡NÚMERO COPIADO!</>
-                          ) : (
-                            <><i className="fa-solid fa-copy"></i> COPIAR YAPE: {APP_CONFIG.yapeNumber}</>
-                          )}
+                          {isCopying ? <i className="fa-solid fa-circle-notch animate-spin"></i> : hasCopiedPayment ? <><i className="fa-solid fa-check"></i> COPIADO</> : <><i className="fa-solid fa-copy"></i> COPIAR NÚMERO</>}
                         </button>
-                        <p className="mt-4 text-[9px] font-bold text-black/30 uppercase tracking-tight">Copia el número para que tu pedido sea válido</p>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </div>
@@ -246,11 +245,11 @@ export const Cart: React.FC<CartProps> = ({
                 onClick={handleWhatsAppOrder}
                 className={`w-full py-6 rounded-2xl flex items-center justify-center gap-4 font-black text-sm transition-all shadow-xl ${canSubmit ? 'bg-[#ff0095] text-white hover:scale-105 active:scale-95' : 'bg-gray-100 text-gray-300'}`}
               >
-                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin text-xl"></i> : <i className="fa-brands fa-whatsapp text-xl"></i>}
+                {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-brands fa-whatsapp text-xl"></i>}
                 <span className="uppercase tracking-[0.2em]">{isSubmitting ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}</span>
               </button>
-              {!hasCopiedYape && isFormValid && items.length > 0 && (
-                <p className="text-center text-[9px] font-black text-[#ff0095] animate-pulse uppercase">Primero copia el número de Yape arriba ↑</p>
+              {needsCopy && isFormValid && !hasCopiedPayment && items.length > 0 && (
+                <p className="text-center text-[9px] font-black text-[#ff0095] animate-pulse uppercase">Copia el número de {paymentMethod.toUpperCase()} arriba ↑</p>
               )}
             </div>
           </>
