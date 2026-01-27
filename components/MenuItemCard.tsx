@@ -25,8 +25,9 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({
       {/* Imagen con contenedor en color crema suave */}
       <div className="relative aspect-[1/1] overflow-hidden bg-[#fdf9c4]/20">
         <img 
-          src={item.image_url} 
+          src={item.image_url || 'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=600&auto=format&fit=crop'} 
           alt={item.name} 
+          onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=600&auto=format&fit=crop'; }}
           className={`w-full h-full object-cover transition-transform duration-[1.5s] cubic-bezier(0.23, 1, 0.32, 1) ${isHovered ? 'scale-110' : 'scale-100'}`}
         />
         
@@ -52,7 +53,7 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({
         </h3>
         
         <p className="text-[13px] text-gray-400 font-medium leading-relaxed mb-8 flex-grow line-clamp-2 italic">
-          {item.description}
+          {item.description || "Delicioso plato preparado con el auténtico sabor del norte peruano."}
         </p>
         
         <div className="flex items-center justify-between pt-6 border-t border-[#fdf9c4]">

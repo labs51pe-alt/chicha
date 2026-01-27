@@ -46,6 +46,7 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
           >
             <img 
               src={slide} 
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=1600&auto=format&fit=crop'; }}
               className={`w-full h-full object-cover transition-transform duration-[8000ms] ease-linear brightness-[0.7] ${
                 index === currentSlide ? 'scale-110' : 'scale-100'
               }`} 
@@ -59,7 +60,6 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
       {/* Contenido Central */}
       <div className="relative z-20 flex flex-col items-center px-4 w-full text-center">
         
-        {/* Caja del Logo usando el color crema exacto del logo */}
         <div className={`bg-[#fdf9c4] py-12 px-8 md:px-16 rounded-[3rem] transition-all duration-1000 transform max-w-[340px] md:max-w-md lg:max-w-lg ${
           isVisible 
             ? 'scale-100 opacity-100 shadow-[0_60px_120px_-20px_rgba(0,0,0,0.8)]' 
@@ -68,7 +68,12 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
           
           <div className="flex flex-col items-center mb-8 cursor-pointer" onClick={onLogoClick}>
             {customLogo ? (
-              <img src={customLogo} className="h-44 md:h-64 object-contain filter brightness-0" alt="Chicha Logo" />
+              <img 
+                src={customLogo} 
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                className="h-44 md:h-64 object-contain filter brightness-0" 
+                alt="Chicha Logo" 
+              />
             ) : (
               <>
                 <h1 className="script-font text-black text-[9rem] md:text-[13rem] leading-[0.6] select-none transform -rotate-2">
