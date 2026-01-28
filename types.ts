@@ -60,6 +60,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   customer_name: string;
+  customer_phone?: string;
   order_type: 'delivery' | 'pickup';
   payment_method: 'yape' | 'plin' | 'efectivo';
   payment_status: 'pending' | 'paid';

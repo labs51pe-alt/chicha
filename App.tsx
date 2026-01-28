@@ -29,6 +29,8 @@ const App: React.FC = () => {
     whatsapp_number: '51901885960',
     yape_number: '901885960',
     yape_name: 'Chicha',
+    plin_number: '901885960',
+    plin_name: 'Chicha',
     instagram_url: '',
     facebook_url: '',
     tiktok_url: '',
@@ -241,18 +243,20 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Botón Flotante de Ayuda WhatsApp - Z-INDEX MAXIMIZADO PARA EVITAR QUE SE CUBRA */}
-      <a 
-        href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola Chicha! Necesito ayuda con mi pedido 🌶️')}`} 
-        target="_blank" 
-        className="fixed bottom-6 right-6 w-16 h-16 bg-[#25d366] text-white rounded-full flex items-center justify-center shadow-[0_10px_40px_rgba(37,211,102,0.6)] z-[9999] hover:scale-110 active:scale-95 transition-all animate-bounce hover:animate-none"
-        aria-label="Ayuda por WhatsApp"
-      >
-        <i className="fa-brands fa-whatsapp text-3xl"></i>
-      </a>
+      {/* Botón Flotante de Ayuda WhatsApp - Se oculta si isAdminOpen es true */}
+      {!isAdminOpen && (
+        <a 
+          href={`https://wa.me/${appConfig.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola Chicha! Necesito ayuda con mi pedido 🌶️')}`} 
+          target="_blank" 
+          className="fixed bottom-6 right-6 w-16 h-16 bg-[#25d366] text-white rounded-full flex items-center justify-center shadow-[0_10px_40px_rgba(37,211,102,0.6)] z-[999] hover:scale-110 active:scale-95 transition-all animate-bounce hover:animate-none"
+          aria-label="Ayuda por WhatsApp"
+        >
+          <i className="fa-brands fa-whatsapp text-3xl"></i>
+        </a>
+      )}
 
       <ItemDetailModal item={selectedItemForModal} onClose={() => setSelectedItemForModal(null)} onAddToCart={addToCart} />
-      <Cart isOpen={isCartOpen} onToggle={() => setIsCartOpen(false)} items={cartItems} onRemove={(id, vId) => updateQuantity(id, -99, vId)} onUpdateQuantity={updateQuantity} onClearCart={clearCart} whatsappNumber={appConfig.whatsapp_number} />
+      <Cart isOpen={isCartOpen} onToggle={() => setIsCartOpen(false)} items={cartItems} onRemove={(id, vId) => updateQuantity(id, -99, vId)} onUpdateQuantity={updateQuantity} onClearCart={clearCart} config={appConfig} />
       <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} categories={categories.filter(c => c.id !== 'todo')} products={products} config={appConfig} onRefresh={() => fetchInitialData()} />
     </div>
   );
