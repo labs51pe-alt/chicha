@@ -64,8 +64,6 @@ export const Cart: React.FC<CartProps> = ({
         status: 'pending'
       };
 
-      console.log("Enviando pedido:", newOrder);
-
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([newOrder])
@@ -73,8 +71,6 @@ export const Cart: React.FC<CartProps> = ({
         .single();
 
       if (orderError) {
-        // Si sale el error de 'column not found', el SQL del paso 1 no se ejecutó bien
-        console.error("Error en tabla orders:", orderError);
         throw new Error(`Error en base de datos: ${orderError.message}`);
       }
 
@@ -92,13 +88,18 @@ export const Cart: React.FC<CartProps> = ({
         .insert(orderItems);
 
       if (itemsError) {
-        console.error("Error en tabla order_items:", itemsError);
         throw new Error(`Error al registrar items: ${itemsError.message}`);
       }
 
-      // 3. Abrir WhatsApp
+      // 3. Abrir WhatsApp con el mensaje actualizado
       const typeLabel = orderType === 'delivery' ? '🛵 DELIVERY' : '🏠 RECOJO';
-      const payLabel = paymentMethod.toUpperCase();
+      
+      // Personalizar etiqueta de pago
+      let payLabel = paymentMethod.toUpperCase();
+      if (paymentMethod === 'yape' || paymentMethod === 'plin') {
+        payLabel = `${paymentMethod.toUpperCase()} (En breve envío la constancia de pago)`;
+      }
+
       const itemsText = items.map(item =>
           `• ${item.quantity}x ${item.name}${item.selectedVariant ? ` (${item.selectedVariant.name})` : ''}`
         ).join('\n');

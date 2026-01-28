@@ -56,6 +56,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     fetchOrders();
   };
 
+  const updatePaymentStatus = async (orderId: string, newPaymentStatus: Order['payment_status']) => {
+    await supabase.from('orders').update({ payment_status: newPaymentStatus }).eq('id', orderId);
+    fetchOrders();
+  };
+
   const handleUpdateConfig = async (updates: Partial<AppConfig>) => {
     setSaving(true);
     try {
@@ -186,17 +191,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="flex gap-8 overflow-x-auto h-full pb-8 no-scrollbar items-start">
               <KanbanCol title="PENDIENTES" color="#f59e0b" count={orders.filter(o => o.status === 'pending').length}>
                 {orders.filter(o => o.status === 'pending').map(o => (
-                  <OrderCard key={o.id} order={o} primaryAction={{ label: 'CONFIRMAR', color: 'bg-blue-600', onClick: () => updateOrderStatus(o.id, 'confirmed') }} onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} />
+                  <OrderCard 
+                    key={o.id} 
+                    order={o} 
+                    primaryAction={{ label: 'CONFIRMAR', color: 'bg-blue-600', onClick: () => updateOrderStatus(o.id, 'confirmed') }} 
+                    onMarkPaid={() => updatePaymentStatus(o.id, 'paid')}
+                    onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} 
+                  />
                 ))}
               </KanbanCol>
               <KanbanCol title="EN COCINA" color="#2563eb" count={orders.filter(o => ['confirmed', 'ready'].includes(o.status)).length}>
                 {orders.filter(o => ['confirmed', 'ready'].includes(o.status)).map(o => (
-                  <OrderCard key={o.id} order={o} primaryAction={{ label: 'COMPLETAR', color: 'bg-green-600', onClick: () => updateOrderStatus(o.id, 'completed') }} onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} />
+                  <OrderCard 
+                    key={o.id} 
+                    order={o} 
+                    primaryAction={{ label: 'COMPLETAR', color: 'bg-green-600', onClick: () => updateOrderStatus(o.id, 'completed') }} 
+                    onMarkPaid={() => updatePaymentStatus(o.id, 'paid')}
+                    onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} 
+                  />
                 ))}
               </KanbanCol>
               <KanbanCol title="HISTORIAL" color="#9ca3af" count={orders.filter(o => ['completed', 'cancelled'].includes(o.status)).length}>
                 {orders.filter(o => ['completed', 'cancelled'].includes(o.status)).map(o => (
-                  <OrderCard key={o.id} order={o} onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} isArchived />
+                  <OrderCard 
+                    key={o.id} 
+                    order={o} 
+                    onDelete={async () => { if(confirm('¿Borrar?')) await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); }} 
+                    isArchived 
+                  />
                 ))}
               </KanbanCol>
             </div>
@@ -411,28 +433,73 @@ const KanbanCol: React.FC<{ title: string; color: string; count: number; childre
   </div>
 );
 
-const OrderCard: React.FC<{ order: Order; primaryAction?: { label: string; color: string; onClick: () => void }; onDelete: () => void; isArchived?: boolean; }> = ({ order, primaryAction, onDelete, isArchived }) => (
-  <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-50 relative group hover:shadow-xl transition-all duration-500">
-    <button onClick={onDelete} className="absolute top-4 right-4 text-gray-100 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+const OrderCard: React.FC<{ order: Order; primaryAction?: { label: string; color: string; onClick: () => void }; onMarkPaid?: () => void; onDelete: () => void; isArchived?: boolean; }> = ({ order, primaryAction, onMarkPaid, onDelete, isArchived }) => (
+  <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-50 relative group hover:shadow-xl transition-all duration-500 overflow-hidden">
+    
+    {/* Sello de Pagado */}
+    {order.payment_status === 'paid' && (
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 opacity-15 pointer-events-none z-0">
+        <div className="border-8 border-green-600 px-12 py-6 rounded-3xl flex flex-col items-center">
+           <span className="text-green-600 text-6xl font-black brand-font uppercase italic leading-none">PAGADO</span>
+           <span className="text-green-600 text-xl font-black uppercase tracking-[0.5em] mt-2">CHICHA PIURA</span>
+        </div>
+      </div>
+    )}
+
+    <button onClick={onDelete} className="absolute top-4 right-4 text-gray-100 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 z-10">
       <i className="fa-solid fa-trash-can text-sm"></i>
     </button>
-    <div className="mb-5">
-      <span className="text-[9px] font-black uppercase text-[#ff0095] tracking-widest bg-[#ff0095]/5 px-3 py-1 rounded-full">#{order.id.slice(-4)}</span>
-      <h5 className="font-black text-sm uppercase mt-3 italic leading-tight truncate pr-8">{order.customer_name}</h5>
+    
+    <div className="mb-4 relative z-10">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[8px] font-black uppercase text-[#ff0095] tracking-widest bg-[#ff0095]/5 px-3 py-1 rounded-full">#{order.id.slice(-4)}</span>
+        <div className="flex gap-2">
+          {order.order_type === 'delivery' ? (
+            <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-lg text-[8px] font-black uppercase"><i className="fa-solid fa-motorcycle mr-1"></i> DELIVERY</span>
+          ) : (
+            <span className="bg-orange-50 text-orange-600 px-2 py-1 rounded-lg text-[8px] font-black uppercase"><i className="fa-solid fa-house-user mr-1"></i> RECOJO</span>
+          )}
+          <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-600'}`}>
+            {order.payment_method} {order.payment_status === 'paid' ? '✓' : ''}
+          </span>
+        </div>
+      </div>
+      <h5 className="font-black text-sm uppercase italic leading-tight truncate pr-8">{order.customer_name}</h5>
+      {order.order_type === 'delivery' && (
+        <p className="text-[10px] text-gray-400 font-bold italic mt-1 leading-tight"><i className="fa-solid fa-location-dot mr-1"></i> {order.address}</p>
+      )}
     </div>
-    <div className="space-y-2 mb-8 text-[11px] font-bold text-gray-400 italic">
+
+    <div className="space-y-1 mb-6 text-[10px] font-bold text-gray-500 italic bg-gray-50/50 p-3 rounded-xl relative z-10">
       {order.items?.map((item, i) => (
-        <div key={i} className="flex justify-between border-b border-gray-50 pb-1">
-          <span>{item.quantity}x {item.product_name}</span>
-          <span className="text-black/20">S/ {item.price.toFixed(2)}</span>
+        <div key={i} className="flex justify-between border-b border-gray-100/50 last:border-0 pb-1 pt-1">
+          <span className="text-black/80">{item.quantity}x {item.product_name}</span>
+          <span className="text-gray-300">S/ {item.price.toFixed(2)}</span>
         </div>
       ))}
+      <div className="flex justify-between pt-2 mt-1 border-t-2 border-dashed border-gray-200">
+        <span className="text-black font-black uppercase text-[9px]">TOTAL</span>
+        <span className="text-[#ff0095] font-black">S/ {order.total_amount.toFixed(2)}</span>
+      </div>
     </div>
-    {primaryAction && (
-      <button onClick={primaryAction.onClick} className={`w-full py-5 rounded-[1.5rem] text-[10px] font-black text-white uppercase tracking-widest ${primaryAction.color} active:scale-95 transition-all shadow-xl shadow-black/5`}>
-        {primaryAction.label}
-      </button>
-    )}
-    {isArchived && <div className="text-center text-[10px] font-black text-gray-200 uppercase tracking-[0.4em] italic mt-2">Finalizado</div>}
+
+    <div className="grid grid-cols-2 gap-2 relative z-10">
+      {primaryAction && (
+        <button onClick={primaryAction.onClick} className={`py-4 rounded-[1.2rem] text-[9px] font-black text-white uppercase tracking-widest ${primaryAction.color} active:scale-95 transition-all shadow-lg`}>
+          {primaryAction.label}
+        </button>
+      )}
+      {onMarkPaid && order.payment_status !== 'paid' && (
+        <button onClick={onMarkPaid} className="py-4 rounded-[1.2rem] text-[9px] font-black text-white uppercase tracking-widest bg-green-500 active:scale-95 transition-all shadow-lg">
+          PAGADO
+        </button>
+      )}
+      {order.payment_status === 'paid' && !isArchived && (
+         <div className="col-span-full py-4 text-center border-2 border-dashed border-green-200 rounded-2xl flex items-center justify-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-widest">
+            <i className="fa-solid fa-circle-check"></i> PAGO REGISTRADO
+         </div>
+      )}
+    </div>
+    {isArchived && <div className="text-center text-[9px] font-black text-gray-200 uppercase tracking-[0.4em] italic mt-2">Finalizado</div>}
   </div>
 );

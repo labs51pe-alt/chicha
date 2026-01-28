@@ -62,6 +62,7 @@ export interface Order {
   customer_name: string;
   order_type: 'delivery' | 'pickup';
   payment_method: 'yape' | 'plin' | 'efectivo';
+  payment_status: 'pending' | 'paid';
   address?: string;
   total_amount: number;
   status: 'pending' | 'confirmed' | 'ready' | 'completed' | 'cancelled';
