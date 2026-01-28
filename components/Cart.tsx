@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { CartItem } from '../types';
-import { APP_CONFIG } from '../data';
 import { supabase } from '../lib/supabase';
 
 interface CartProps {
@@ -55,7 +54,7 @@ export const Cart: React.FC<CartProps> = ({
     setIsSubmitting(true);
 
     try {
-      // 1. Guardar en Supabase - Persistencia en la nube
+      // 1. Guardar en Supabase
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
@@ -69,7 +68,10 @@ export const Cart: React.FC<CartProps> = ({
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error("Detalle del error en orders:", orderError);
+        throw new Error(orderError.message);
+      }
 
       const orderItems = items.map(item => ({
         order_id: orderData.id,
@@ -83,27 +85,29 @@ export const Cart: React.FC<CartProps> = ({
         .from('order_items')
         .insert(orderItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error("Detalle del error en items:", itemsError);
+        throw new Error(itemsError.message);
+      }
 
-      // 2. Mensaje de WhatsApp
+      // 2. Preparar mensaje de WhatsApp
       const typeLabel = orderType === 'delivery' ? '🛵 DELIVERY' : '🏠 RECOJO';
       const payLabel = paymentMethod.toUpperCase();
-      const separator = '--------------------------------';
       const itemsText = items.map(item =>
           `• ${item.quantity}x ${item.name}${item.selectedVariant ? ` (${item.selectedVariant.name})` : ''}`
         ).join('\n');
 
       const message = encodeURIComponent(
-        `Habla Chicha! 🌶️ Soy *${customerName || 'Cliente'}* 😎\n` +
+        `¡Habla Chicha! 🌶️ Soy *${customerName || 'Cliente'}*\n` +
         `MODALIDAD: ${typeLabel}\n` +
         `PAGO: ${payLabel}\n` +
-        `${separator}\n` +
+        `--------------------------------\n` +
         `📋 MI PEDIDO:\n` +
         `${itemsText}\n` +
-        `${separator}\n` +
+        `--------------------------------\n` +
         `💰 TOTAL: S/ ${total.toFixed(2)}\n` +
-        `${separator}\n` +
-        `✅ ¡Confirmado! ¡Métele limon y aji a mi pedido!`
+        `--------------------------------\n` +
+        `✅ ¡Pedido enviado desde la web!`
       );
 
       window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${message}`, '_blank');
@@ -114,9 +118,9 @@ export const Cart: React.FC<CartProps> = ({
       setAddress('');
       setHasCopiedPayment(false);
 
-    } catch (error) {
-      console.error("Error saving order:", error);
-      alert("Error al registrar el pedido.");
+    } catch (error: any) {
+      console.error("Error completo del registro:", error);
+      alert(`Error al registrar pedido: ${error.message || 'Verifica tu conexión y las tablas de Supabase'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -137,29 +141,26 @@ export const Cart: React.FC<CartProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-end bg-black/80 backdrop-blur-sm transition-all duration-500">
+    <div className="fixed inset-0 z-[110] flex items-center justify-end bg-black/80 backdrop-blur-sm">
       <div className="bg-[#fffef5] w-full max-w-md h-full flex flex-col shadow-2xl border-l-4 border-[#fdf9c4] relative">
         
         {orderSuccess ? (
           <div className="flex-grow flex flex-col items-center justify-center p-12 text-center animate-reveal">
-            <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center text-4xl mb-8 shadow-2xl shadow-green-200">
+            <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center text-4xl mb-8 shadow-2xl">
               <i className="fa-solid fa-check"></i>
             </div>
-            <h2 className="brand-font text-4xl font-black italic uppercase mb-4 leading-none">¡Pedido <span className="text-[#ff0095]">Realizado!</span></h2>
-            <p className="text-gray-400 text-sm font-bold uppercase tracking-widest leading-relaxed mb-12">
-              Ya enviamos tu pedido a WhatsApp.<br/>¡Ahorita te atendemos, churre!
-            </p>
-            <button onClick={handleClose} className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all">Seguir pidiendo</button>
+            <h2 className="brand-font text-4xl font-black italic uppercase mb-4">¡Pedido <span className="text-[#ff0095]">Listo!</span></h2>
+            <p className="text-gray-400 text-sm font-bold uppercase mb-12">Ya enviamos tu pedido a WhatsApp.</p>
+            <button onClick={handleClose} className="w-full bg-black text-white py-6 rounded-2xl font-black uppercase tracking-widest">Seguir pidiendo</button>
           </div>
         ) : (
           <>
             <div className="p-8 border-b-2 border-[#fdf9c4] bg-white">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-3xl font-black brand-font text-black uppercase italic leading-none">Mi <span className="text-[#ff0095]">Canasta</span></h2>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-2">Sabores de Piura</p>
+                  <h2 className="text-3xl font-black brand-font text-black uppercase italic">Mi <span className="text-[#ff0095]">Canasta</span></h2>
                 </div>
-                <button onClick={onToggle} className="w-12 h-12 rounded-2xl bg-[#fdf9c4]/30 flex items-center justify-center text-black hover:text-[#ff0095] transition-all">
+                <button onClick={onToggle} className="w-12 h-12 rounded-2xl bg-[#fdf9c4]/30 flex items-center justify-center text-black">
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
               </div>
@@ -181,36 +182,21 @@ export const Cart: React.FC<CartProps> = ({
                     
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">¿Quién pide?</label>
-                      <input 
-                        type="text" 
-                        placeholder="Tu nombre completo" 
-                        value={customerName} 
-                        onChange={(e) => setCustomerName(e.target.value)} 
-                        className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold transition-all uppercase focus:border-[#ff0095]" 
-                      />
+                      <input type="text" placeholder="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold uppercase focus:border-[#ff0095]" />
                     </div>
 
                     {orderType === 'delivery' && (
-                      <div className="space-y-1 animate-reveal">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Dirección de entrega</label>
-                        <textarea 
-                          placeholder="Calle, número, referencia..." 
-                          value={address} 
-                          onChange={(e) => setAddress(e.target.value)} 
-                          className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold h-20 resize-none transition-all uppercase focus:border-[#ff0095]" 
-                        />
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Dirección</label>
+                        <textarea placeholder="Calle y referencia..." value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-6 py-4 rounded-2xl border-2 border-[#fdf9c4]/40 bg-white outline-none text-xs font-bold h-20 resize-none uppercase focus:border-[#ff0095]" />
                       </div>
                     )}
 
                     <div className="space-y-4">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Método de Pago</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-2">Pago</label>
                       <div className="grid grid-cols-3 gap-2">
                         {(['yape', 'plin', 'efectivo'] as PaymentMethod[]).map(m => (
-                          <button 
-                            key={m} 
-                            onClick={() => { setPaymentMethod(m); setHasCopiedPayment(false); }}
-                            className={`py-3 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${paymentMethod === m ? 'border-black bg-black text-white' : 'border-[#fdf9c4] text-gray-400'}`}
-                          >
+                          <button key={m} onClick={() => { setPaymentMethod(m); setHasCopiedPayment(false); }} className={`py-3 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${paymentMethod === m ? 'border-black bg-black text-white' : 'border-[#fdf9c4] text-gray-400'}`}>
                             {m}
                           </button>
                         ))}
@@ -219,19 +205,12 @@ export const Cart: React.FC<CartProps> = ({
                   </div>
 
                   {needsCopy && isFormValid && (
-                    <div className="bg-[#fdf9c4] p-8 rounded-[2.5rem] border-2 border-[#ff0095]/10 shadow-xl text-center animate-reveal">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff0095] block mb-4 italic">Paga con {paymentMethod.toUpperCase()}</span>
-                        <div className="flex flex-col items-center mb-6">
-                            <span className="text-4xl font-black brand-font text-black italic">S/ {total.toFixed(2)}</span>
-                        </div>
-
-                        <button 
-                          onClick={() => handleCopyPayment(paymentMethod === 'yape' ? APP_CONFIG.yapeNumber : (APP_CONFIG as any).plinNumber || APP_CONFIG.yapeNumber)}
-                          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-black uppercase text-[10px] tracking-widest ${
-                            hasCopiedPayment ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-[#ff0095]'
-                          }`}
-                        >
-                          {isCopying ? <i className="fa-solid fa-circle-notch animate-spin"></i> : hasCopiedPayment ? <><i className="fa-solid fa-check"></i> COPIADO</> : <><i className="fa-solid fa-copy"></i> COPIAR NÚMERO</>}
+                    <div className="bg-[#fdf9c4] p-8 rounded-[2.5rem] text-center shadow-xl animate-reveal">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#ff0095] block mb-4 italic">Paga con {paymentMethod.toUpperCase()}</span>
+                        <span className="text-4xl font-black brand-font text-black italic block mb-6">S/ {total.toFixed(2)}</span>
+                        <button onClick={() => handleCopyPayment('901885960')} className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black uppercase text-[10px] ${hasCopiedPayment ? 'bg-green-500 text-white' : 'bg-black text-white'}`}>
+                          {isCopying ? <i className="fa-solid fa-circle-notch animate-spin"></i> : hasCopiedPayment ? <i className="fa-solid fa-check"></i> : <i className="fa-solid fa-copy"></i>}
+                          {hasCopiedPayment ? 'COPIADO' : 'COPIAR NÚMERO'}
                         </button>
                     </div>
                   )}
@@ -240,17 +219,10 @@ export const Cart: React.FC<CartProps> = ({
             </div>
 
             <div className="p-8 bg-white border-t-2 border-[#fdf9c4] space-y-4">
-              <button 
-                disabled={!canSubmit}
-                onClick={handleWhatsAppOrder}
-                className={`w-full py-6 rounded-2xl flex items-center justify-center gap-4 font-black text-sm transition-all shadow-xl ${canSubmit ? 'bg-[#ff0095] text-white hover:scale-105 active:scale-95' : 'bg-gray-100 text-gray-300'}`}
-              >
+              <button disabled={!canSubmit} onClick={handleWhatsAppOrder} className={`w-full py-6 rounded-2xl flex items-center justify-center gap-4 font-black text-sm transition-all shadow-xl ${canSubmit ? 'bg-[#ff0095] text-white' : 'bg-gray-100 text-gray-300'}`}>
                 {isSubmitting ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-brands fa-whatsapp text-xl"></i>}
-                <span className="uppercase tracking-[0.2em]">{isSubmitting ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}</span>
+                <span className="uppercase tracking-widest">{isSubmitting ? 'PROCESANDO...' : 'CONFIRMAR PEDIDO'}</span>
               </button>
-              {needsCopy && isFormValid && !hasCopiedPayment && items.length > 0 && (
-                <p className="text-center text-[9px] font-black text-[#ff0095] animate-pulse uppercase">Copia el número de {paymentMethod.toUpperCase()} arriba ↑</p>
-              )}
             </div>
           </>
         )}

@@ -178,7 +178,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {activeTab === 'orders' && (
           <div className="h-full flex flex-col p-8 overflow-hidden animate-reveal">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-3xl font-black brand-font italic uppercase italic tracking-tighter">Panel de Pedidos</h3>
+              <h3 className="text-3xl font-black brand-font italic uppercase tracking-tighter">Panel de Pedidos</h3>
               <button onClick={fetchOrders} className={`w-12 h-12 bg-white rounded-2xl flex items-center justify-center border shadow-sm ${loadingOrders ? 'animate-spin' : ''}`}>
                 <i className="fa-solid fa-rotate-right text-sm"></i>
               </button>
@@ -209,7 +209,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                  <div className="bg-white p-6 rounded-[2rem] border shadow-sm flex justify-between items-center">
                     <div>
                       <h4 className="text-xl font-black brand-font uppercase italic leading-none">Mi Carta</h4>
-                      <p className="text-[9px] font-bold text-gray-400 mt-2 tracking-widest uppercase">Gestiona tus sabores</p>
                     </div>
                     <button onClick={() => setEditingProduct({ price: 0, description: '' })} className="bg-black text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg">+ NUEVO PLATO</button>
                  </div>
@@ -356,9 +355,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   setSaving(true);
                   try {
                     const data = { ...editingProduct };
+                    // Eliminar campos que no van a la base de datos
                     delete (data as any).variants;
-                    if (editingProduct.id) await supabase.from('products').update(data).eq('id', editingProduct.id);
-                    else await supabase.from('products').insert([data]);
+                    delete (data as any).category;
+                    
+                    if (editingProduct.id) {
+                      await supabase.from('products').update(data).eq('id', editingProduct.id);
+                    } else {
+                      await supabase.from('products').insert([data]);
+                    }
                     setEditingProduct(null);
                     onRefresh();
                   } catch (err: any) {
