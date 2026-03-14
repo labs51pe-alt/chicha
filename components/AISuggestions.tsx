@@ -31,12 +31,12 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
   ];
 
   return (
-    <div className="fixed bottom-24 left-6 md:left-12 z-[100]">
+    <div className="fixed bottom-6 md:bottom-12 left-6 md:left-12 z-[100]">
       {isOpen ? (
-        <div className="bg-white w-[90vw] sm:w-[380px] rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-[#e91e63]/10 overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500">
-          <div className="hero-gradient p-6 text-white flex justify-between items-center">
+        <div className="bg-white w-[85vw] sm:w-[380px] rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-[#ff0095]/10 overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500">
+          <div className="bg-black p-6 text-white flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#e91e63] shadow-lg">
+              <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#ff0095] shadow-lg">
                 <i className="fa-solid fa-robot text-2xl"></i>
               </div>
               <div>
@@ -51,7 +51,7 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
             </button>
           </div>
 
-          <div className="p-6 max-h-[450px] overflow-y-auto no-scrollbar space-y-6 bg-gray-50/50">
+          <div className="p-6 max-h-[400px] md:max-h-[450px] overflow-y-auto no-scrollbar space-y-6 bg-gray-50/50">
             {response ? (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="relative">
@@ -70,14 +70,14 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
                         <button 
                           key={id}
                           onClick={() => onSelectItem(item)}
-                          className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-2xl hover:border-[#e91e63] transition-all text-left shadow-sm group"
+                          className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-2xl hover:border-[#ff0095] transition-all text-left shadow-sm group"
                         >
                           <div className="relative overflow-hidden rounded-xl h-24">
                             {/* FIX: Changed 'item.image' to 'item.image_url' to match MenuItem interface */}
                             <img src={item.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                           </div>
                           <span className="text-[11px] font-black line-clamp-1 brand-font uppercase">{item.name}</span>
-                          <span className="text-[11px] font-bold text-[#e91e63]">S/ {item.price.toFixed(2)}</span>
+                          <span className="text-[11px] font-bold text-[#ff0095]">S/ {item.price.toFixed(2)}</span>
                         </button>
                       );
                     })}
@@ -86,7 +86,7 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
                 
                 <button 
                   onClick={() => setResponse(null)}
-                  className="w-full py-2.5 text-[10px] font-black uppercase tracking-widest text-[#e91e63] bg-[#e91e63]/5 rounded-xl hover:bg-[#e91e63]/10 transition-colors"
+                  className="w-full py-2.5 text-[10px] font-black uppercase tracking-widest text-[#ff0095] bg-[#ff0095]/5 rounded-xl hover:bg-[#ff0095]/10 transition-colors"
                 >
                   Hacer otra pregunta
                 </button>
@@ -106,7 +106,7 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
                           <button 
                             key={qp}
                             onClick={() => {setPrompt(qp);}}
-                            className="bg-white border border-gray-100 px-4 py-2 rounded-full text-xs font-bold text-gray-500 hover:border-[#e91e63] hover:text-[#e91e63] transition-all shadow-sm"
+                            className="bg-white border border-gray-100 px-4 py-2 rounded-full text-xs font-bold text-gray-500 hover:border-[#ff0095] hover:text-[#ff0095] transition-all shadow-sm"
                           >
                             {qp}
                           </button>
@@ -119,11 +119,11 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
                 {loading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <div className="flex gap-1.5">
-                      <div className="w-3 h-3 bg-[#e91e63] rounded-full animate-bounce"></div>
-                      <div className="w-3 h-3 bg-[#e91e63] rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                      <div className="w-3 h-3 bg-[#e91e63] rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                      <div className="w-3 h-3 bg-[#ff0095] rounded-full animate-bounce"></div>
+                      <div className="w-3 h-3 bg-[#ff0095] rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                      <div className="w-3 h-3 bg-[#ff0095] rounded-full animate-bounce [animation-delay:0.4s]"></div>
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#e91e63] animate-pulse">Pensando algo bacán...</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#ff0095] animate-pulse">Pensando algo bacán...</p>
                   </div>
                 )}
               </div>
@@ -137,11 +137,11 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={loading}
-              className="flex-grow bg-gray-50 px-5 py-3 rounded-2xl text-sm border-transparent border focus:border-[#e91e63]/20 focus:bg-white outline-none transition-all"
+              className="flex-grow bg-gray-50 px-5 py-3 rounded-2xl text-sm border-transparent border focus:border-[#ff0095]/20 focus:bg-white outline-none transition-all"
             />
             <button 
               disabled={loading || !prompt.trim()}
-              className="bg-[#e91e63] text-white w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-[#c2185b] transition-all shadow-lg shadow-[#e91e63]/20 disabled:opacity-50 disabled:shadow-none"
+              className="bg-[#ff0095] text-white w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-black transition-all shadow-lg shadow-[#ff0095]/20 disabled:opacity-50 disabled:shadow-none"
             >
               <i className="fa-solid fa-paper-plane text-sm"></i>
             </button>
@@ -150,11 +150,11 @@ export const AISuggestions: React.FC<AISuggestionsProps> = ({ menu, onSelectItem
       ) : (
         <button 
           onClick={() => setIsOpen(true)}
-          className="w-16 h-16 bg-[#e91e63] text-white rounded-3xl flex items-center justify-center shadow-2xl animate-float hover:scale-110 transition-transform active:scale-95 group relative rotate-3 hover:rotate-0"
+          className="w-14 h-14 md:w-16 md:h-16 bg-[#ff0095] text-white rounded-2xl md:rounded-3xl flex items-center justify-center shadow-2xl animate-float hover:scale-110 transition-transform active:scale-95 group relative rotate-3 hover:rotate-0"
         >
-          <i className="fa-solid fa-robot text-3xl"></i>
-          <span className="absolute -top-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-4 border-white"></span>
-          <div className="absolute left-full ml-6 bg-white text-gray-900 px-6 py-3 rounded-2xl shadow-2xl text-xs font-black brand-font uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none border border-gray-100">
+          <i className="fa-solid fa-robot text-2xl md:text-3xl"></i>
+          <span className="absolute -top-1 -right-1 bg-green-500 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-white"></span>
+          <div className="absolute left-full ml-6 bg-white text-gray-900 px-6 py-3 rounded-2xl shadow-2xl text-xs font-black brand-font uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none border border-gray-100 hidden md:block">
             ¿Qué vas a pedir, churre? 🍔
           </div>
         </button>

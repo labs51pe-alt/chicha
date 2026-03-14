@@ -71,15 +71,15 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({ onEnter, customLogo,
               <img 
                 src={customLogo} 
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                className="h-44 md:h-64 object-contain filter brightness-0" 
+                className="h-32 md:h-64 object-contain filter brightness-0" 
                 alt="Chicha Logo" 
               />
             ) : (
               <>
-                <h1 className="script-font text-black text-[9rem] md:text-[13rem] leading-[0.6] select-none transform -rotate-2">
+                <h1 className="script-font text-black text-[6rem] md:text-[13rem] leading-[0.6] select-none transform -rotate-2">
                   Chicha
                 </h1>
-                <h2 className="text-[#ff0095] font-black text-sm md:text-xl tracking-[0.3em] uppercase mt-4">
+                <h2 className="text-[#ff0095] font-black text-xs md:text-xl tracking-[0.3em] uppercase mt-4">
                   Cevichería Piurana
                 </h2>
               </>

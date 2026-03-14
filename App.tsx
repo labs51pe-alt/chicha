@@ -139,31 +139,31 @@ const App: React.FC = () => {
         />
       )}
 
-      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-3 shadow-md' : 'bg-transparent py-8 md:py-12'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
-        <div className="max-w-7xl mx-auto px-8 md:px-12 flex items-center justify-between">
-          <div className="cursor-pointer group flex items-center gap-4" onClick={handleLogoClick}>
+      <header className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-700 ${scrolled ? 'glass-header py-2 md:py-3 shadow-md' : 'bg-transparent py-4 md:py-12'} ${showWelcome ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'}`}>
+        <div className="max-w-7xl mx-auto px-4 md:px-12 flex items-center justify-between">
+          <div className="cursor-pointer group flex items-center gap-2 md:gap-4" onClick={handleLogoClick}>
             {appConfig.logo_url ? (
               <img 
                 src={appConfig.logo_url} 
-                className={`transition-all duration-700 ${scrolled ? 'h-16 md:h-20' : 'h-28 md:h-40'} object-contain drop-shadow-2xl`} 
+                className={`transition-all duration-700 ${scrolled ? 'h-12 md:h-20' : 'h-20 md:h-40'} object-contain drop-shadow-2xl`} 
                 alt="Chicha Logo" 
               />
             ) : (
               <div className="flex flex-col">
-                <h1 className={`script-font transition-all duration-700 ${scrolled ? 'text-4xl' : 'text-7xl'} text-black leading-none`}>Chicha</h1>
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#ff0095]">Cevichería Piurana</span>
+                <h1 className={`script-font transition-all duration-700 ${scrolled ? 'text-2xl md:text-4xl' : 'text-5xl md:text-7xl'} text-black leading-none`}>Chicha</h1>
+                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-[#ff0095]">Cevichería Piurana</span>
               </div>
             )}
           </div>
 
           <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-black text-white px-8 py-5 rounded-[2rem] flex items-center gap-5 hover:bg-[#ff0095] transition-all duration-500 shadow-2xl active:scale-95 group"
+              className="relative bg-black text-white px-5 md:px-8 py-3 md:py-5 rounded-[1.5rem] md:rounded-[2rem] flex items-center gap-3 md:gap-5 hover:bg-[#ff0095] transition-all duration-500 shadow-2xl active:scale-95 group"
           >
-              <i className="fa-solid fa-cart-shopping text-sm group-hover:rotate-12 transition-transform"></i>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] hidden md:block">Mi Canasta</span>
+              <i className="fa-solid fa-cart-shopping text-xs md:text-sm group-hover:rotate-12 transition-transform"></i>
+              <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] hidden sm:block">Mi Canasta</span>
               {totalItemsCount > 0 && (
-                  <span className="bg-[#ff0095] text-white w-7 h-7 rounded-2xl flex items-center justify-center font-black text-[12px] shadow-lg">
+                  <span className="bg-[#ff0095] text-white w-6 h-6 md:w-7 md:h-7 rounded-2xl flex items-center justify-center font-black text-[10px] md:text-[12px] shadow-lg">
                       {totalItemsCount}
                   </span>
               )}
@@ -171,15 +171,15 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`max-w-7xl mx-auto px-8 md:px-12 pt-64 md:pt-80 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
-        <div className="mb-24 flex flex-col lg:flex-row lg:items-end justify-between gap-16">
+      <main className={`max-w-7xl mx-auto px-6 md:px-12 pt-32 md:pt-80 pb-20 transition-all duration-[1s] ${showWelcome ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
+        <div className="mb-12 md:mb-24 flex flex-col lg:flex-row lg:items-end justify-between gap-8 md:gap-16">
             <div className="max-w-2xl animate-reveal">
-                <div className="w-16 h-[4px] bg-[#ff0095] mb-10 rounded-full"></div>
-                <h2 className="brand-font text-6xl md:text-8xl font-black mb-8 tracking-tighter leading-[0.9] text-black uppercase italic">
+                <div className="w-12 md:w-16 h-[3px] md:h-[4px] bg-[#ff0095] mb-6 md:mb-10 rounded-full"></div>
+                <h2 className="brand-font text-5xl md:text-8xl font-black mb-6 md:mb-8 tracking-tighter leading-[0.9] text-black uppercase italic">
                   Carta de <br/>
                   <span className="text-[#ff0095]">Sabor</span>
                 </h2>
-                <p className="text-gray-500 text-xl font-medium leading-relaxed tracking-tight border-l-4 border-[#fdf9c4] pl-6 italic">
+                <p className="text-gray-500 text-lg md:text-xl font-medium leading-relaxed tracking-tight border-l-4 border-[#fdf9c4] pl-4 md:pl-6 italic">
                   "El sabor del norte que conquistó la capital."
                 </p>
             </div>
@@ -191,21 +191,21 @@ const App: React.FC = () => {
                     placeholder="Busca tu antojo..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-[#fdf9c4]/30 px-8 py-6 rounded-[2.5rem] outline-none border-2 border-transparent focus:border-[#ff0095]/20 focus:bg-white font-bold transition-all duration-500 text-sm italic"
+                    className="w-full bg-[#fdf9c4]/30 px-6 md:px-8 py-4 md:py-6 rounded-[2rem] md:rounded-[2.5rem] outline-none border-2 border-transparent focus:border-[#ff0095]/20 focus:bg-white font-bold transition-all duration-500 text-xs md:text-sm italic"
                   />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center">
-                    <i className="fa-solid fa-magnifying-glass text-[10px]"></i>
+                  <div className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-black text-white rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <i className="fa-solid fa-magnifying-glass text-[9px] md:text-[10px]"></i>
                   </div>
                </div>
             </div>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-10 mb-20 border-b-2 border-[#fdf9c4]">
+        <div className="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar pb-6 md:pb-10 mb-12 md:mb-20 border-b-2 border-[#fdf9c4]">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex items-center gap-4 px-10 py-5 rounded-2xl transition-all duration-500 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.2em] border-2 ${
+              className={`flex items-center gap-3 md:gap-4 px-6 md:px-10 py-4 md:py-5 rounded-xl md:rounded-2xl transition-all duration-500 whitespace-nowrap text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] border-2 ${
                 selectedCategory === cat.id 
                   ? 'bg-black text-white border-black scale-105 shadow-xl' 
                   : 'bg-[#fdf9c4]/40 text-black border-transparent hover:border-[#ff0095]/30'
@@ -217,7 +217,7 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 mb-24">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-12 mb-24">
           {filteredMenu.length > 0 ? filteredMenu.map((item, idx) => (
             <MenuItemCard key={item.id} item={item} onAddToCart={() => setSelectedItemForModal(item)} onShowDetails={() => setSelectedItemForModal(item)} />
           )) : (

@@ -139,7 +139,7 @@ export const Cart: React.FC<CartProps> = ({
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-end bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#fffef5] w-full max-w-md h-full flex flex-col shadow-2xl border-l-4 border-[#fdf9c4] relative animate-reveal">
+      <div className="bg-[#fffef5] w-full sm:max-w-md h-full flex flex-col shadow-2xl border-l-4 border-[#fdf9c4] relative animate-reveal">
         
         {orderSuccess ? (
           <div className="flex-grow flex flex-col items-center justify-center p-12 text-center animate-reveal">

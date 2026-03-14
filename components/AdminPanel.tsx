@@ -33,8 +33,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showOrderListModal, setShowOrderListModal] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
   
-  const [posCart, setPosCart] = useState<CartItem[]>([]);
+  const [posSessions, setPosSessions] = useState<{id: string, name: string, items: CartItem[]}[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState('default');
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [editingSession, setEditingSession] = useState<{id: string, name: string} | null>(null);
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState<{id: string, name: string} | null>(null);
+  const [confirmDeleteOrder, setConfirmDeleteOrder] = useState<{id: string, customer: string} | null>(null);
+  const [newSessionName, setNewSessionName] = useState('');
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [dbStatus, setDbStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  
+  const activeSession = posSessions.find(s => s.id === activeSessionId) || posSessions[0] || { id: 'default', name: 'Cargando...', items: [] };
+  const posCart = activeSession.items;
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      checkConnection();
+      fetchSessions();
+      const channel = supabase.channel('pos_sessions_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_sessions' }, () => fetchSessions())
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') setDbStatus('connected');
+          if (status === 'CHANNEL_ERROR') setDbStatus('error');
+        });
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isLoggedIn]);
+
+  const checkConnection = async () => {
+    try {
+      const { error } = await supabase.from('pos_sessions').select('count', { count: 'exact', head: true });
+      if (error) {
+        console.error("Error de conexión:", error);
+        setDbStatus('error');
+        return false;
+      } else {
+        setDbStatus('connected');
+        return true;
+      }
+    } catch (e) {
+      setDbStatus('error');
+      return false;
+    }
+  };
+
+  const testDbConnection = async () => {
+    const isOk = await checkConnection();
+    if (isOk) {
+      alert("✅ Conexión con Supabase exitosa. La base de datos está respondiendo.");
+    } else {
+      alert("❌ Error de conexión. Verifica que hayas configurado Supabase correctamente y que no haya bloqueos de red.");
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const { data, error } = await supabase.from('pos_sessions').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setPosSessions(data);
+        if (!activeSessionId || !data.find(s => s.id === activeSessionId)) {
+          setActiveSessionId(data[0].id);
+        }
+      } else {
+        const { data: newSess, error: insError } = await supabase.from('pos_sessions').insert([{ name: 'Mesa 1', items: [] }]).select().single();
+        if (insError) throw insError;
+        if (newSess) {
+          setPosSessions([newSess]);
+          setActiveSessionId(newSess.id);
+        }
+      }
+    } catch (err: any) {
+      console.error("Error al cargar mesas:", err);
+      alert("Error de Supabase: " + (err.message || "No se pudo conectar con la base de datos"));
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const setPosCart = async (newItems: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    if (!activeSession || activeSession.id === 'default') return;
+    
+    const currentItems = activeSession.items;
+    const updatedItems = typeof newItems === 'function' ? newItems(currentItems) : newItems;
+    
+    // Optimistic update
+    setPosSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, items: updatedItems } : s));
+    
+    // Sync to Supabase
+    const { error } = await supabase.from('pos_sessions').update({ items: updatedItems }).eq('id', activeSession.id);
+    if (error) {
+      console.error("Error al sincronizar carrito:", error);
+    }
+  };
+  
   const [posCategory, setPosCategory] = useState('todo');
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [posPaymentMethod, setPosPaymentMethod] = useState<'efectivo' | 'yape' | 'plin'>('efectivo');
@@ -83,17 +178,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setLoadingReports(false);
   };
 
-  const updateOrderStatus = async (id: string, status: Order['status']) => {
+  const updatePaymentStatus = async (id: string, payment_status: Order['payment_status']) => {
     try {
-      const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+      const { error } = await supabase.from('orders').update({ payment_status }).eq('id', id);
       if (error) throw error;
       fetchOrders();
     } catch (err: any) { alert(err.message); }
   };
 
-  const updatePaymentStatus = async (id: string, payment_status: Order['payment_status']) => {
+  const completeOrder = async (id: string) => {
     try {
-      const { error } = await supabase.from('orders').update({ payment_status }).eq('id', id);
+      const { error } = await supabase.from('orders').update({ 
+        status: 'completed',
+        payment_status: 'paid'
+      }).eq('id', id);
       if (error) throw error;
       fetchOrders();
     } catch (err: any) { alert(err.message); }
@@ -189,14 +287,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const total = posCart.reduce((s, i) => s + (i.price * i.quantity), 0);
     try {
       const { data: orderData, error: orderError } = await supabase.from('orders').insert([{
-        customer_name: 'Venta Directa Local', order_type: 'pickup', payment_method: posPaymentMethod,
+        customer_name: activeSession.name === 'Mesa 1' ? 'Venta Directa Local' : activeSession.name, 
+        order_type: 'pickup', payment_method: posPaymentMethod,
         payment_status: 'paid', status: 'completed', total_amount: total, address: 'Venta Presencial'
       }]).select().single();
       if (orderError) throw orderError;
       const orderItemsInsert = posCart.map(item => ({ order_id: orderData.id, product_name: item.name, quantity: item.quantity, price: item.price }));
       await supabase.from('order_items').insert(orderItemsInsert);
       setLastOrderForTicket({ ...orderData, items: orderItemsInsert });
-      setShowCheckoutModal(false); setPosCart([]);
+      setShowCheckoutModal(false); 
+      
+      // Delete session from Supabase after checkout
+      if (posSessions.length > 1) {
+        await supabase.from('pos_sessions').delete().eq('id', activeSessionId);
+      } else {
+        await supabase.from('pos_sessions').update({ items: [] }).eq('id', activeSessionId);
+      }
     } catch (err: any) { alert(`Error: ${err.message}`); } finally { setSaving(false); }
   };
 
@@ -227,27 +333,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const posTotal = posCart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
   return (
-    <div className="fixed inset-0 z-[600] bg-[#f8f7f2] flex flex-col md:flex-row overflow-hidden">
+    <div className="fixed inset-0 z-[600] bg-[#f8f7f2] flex flex-col overflow-hidden">
       <input type="file" ref={logoInputRef} onChange={(e) => handleFileUpload(e, 'logo')} className="hidden" />
       <input type="file" ref={slideInputRef} onChange={(e) => handleFileUpload(e, 'slide')} className="hidden" />
       <input type="file" ref={productImgInputRef} onChange={(e) => handleFileUpload(e, 'product')} className="hidden" />
 
-      <div className={`${isSidebarCollapsed ? 'w-20' : 'w-56'} bg-white border-r flex flex-col z-20 shadow-sm transition-all duration-300`}>
-        <div className="p-8 text-center border-b">
-          <h2 className={`text-2xl font-black brand-font italic leading-none ${isSidebarCollapsed ? 'hidden' : 'block'}`}>CHICHA</h2>
-          <span className={`text-[7px] font-black uppercase tracking-[0.4em] text-[#ff0095] block mt-2 ${isSidebarCollapsed ? 'hidden' : 'block'}`}>ADMIN</span>
+      <div className="flex flex-col md:flex-row h-full overflow-hidden">
+        {/* Sidebar - Desktop: Left, Mobile: Bottom */}
+        <div className={`${isSidebarCollapsed ? 'md:w-20' : 'md:w-56'} w-full bg-white border-t md:border-t-0 md:border-r flex flex-row md:flex-col z-20 shadow-sm transition-all duration-300 order-last md:order-first`}>
+          <div className="p-4 md:p-8 text-center border-b hidden md:block">
+            <h2 className={`text-2xl font-black brand-font italic leading-none ${isSidebarCollapsed ? 'hidden' : 'block'}`}>CHICHA</h2>
+            <span className={`text-[7px] font-black uppercase tracking-[0.4em] text-[#ff0095] block mt-2 ${isSidebarCollapsed ? 'hidden' : 'block'}`}>ADMIN</span>
+          </div>
+          <nav className="flex flex-row md:flex-col p-2 md:p-3 gap-1 md:gap-2 flex-grow justify-around md:justify-start overflow-x-auto no-scrollbar">
+            <TabBtn active={activeTab === 'pos'} icon="fa-cash-register" label="POS" onClick={() => setActiveTab('pos')} collapsed={isSidebarCollapsed} />
+            <TabBtn active={activeTab === 'orders'} icon="fa-list-check" label="Pedidos" onClick={() => setActiveTab('orders')} collapsed={isSidebarCollapsed} />
+            <TabBtn active={activeTab === 'reports'} icon="fa-chart-line" label="Reportes" onClick={() => setActiveTab('reports')} collapsed={isSidebarCollapsed} />
+            <TabBtn active={activeTab === 'products'} icon="fa-bowl-rice" label="Carta" onClick={() => setActiveTab('products')} collapsed={isSidebarCollapsed} />
+            <TabBtn active={activeTab === 'branding'} icon="fa-sliders" label="Ajustes" onClick={() => setActiveTab('branding')} collapsed={isSidebarCollapsed} />
+          </nav>
+          <div className="p-2 md:p-4 border-l md:border-l-0 md:border-t flex items-center justify-center">
+            <button onClick={onClose} className="w-full p-3 md:p-4 rounded-xl bg-black text-white text-[9px] font-black uppercase hover:bg-[#ff0095] transition-all whitespace-nowrap">SALIR</button>
+          </div>
         </div>
-        <nav className="flex flex-col p-3 gap-2 flex-grow mt-4">
-          <TabBtn active={activeTab === 'pos'} icon="fa-cash-register" label="POS" onClick={() => setActiveTab('pos')} collapsed={isSidebarCollapsed} />
-          <TabBtn active={activeTab === 'orders'} icon="fa-list-check" label="Pedidos" onClick={() => setActiveTab('orders')} collapsed={isSidebarCollapsed} />
-          <TabBtn active={activeTab === 'reports'} icon="fa-chart-line" label="Reportes" onClick={() => setActiveTab('reports')} collapsed={isSidebarCollapsed} />
-          <TabBtn active={activeTab === 'products'} icon="fa-bowl-rice" label="Carta" onClick={() => setActiveTab('products')} collapsed={isSidebarCollapsed} />
-          <TabBtn active={activeTab === 'branding'} icon="fa-sliders" label="Ajustes" onClick={() => setActiveTab('branding')} collapsed={isSidebarCollapsed} />
-        </nav>
-        <div className="p-4 border-t"><button onClick={onClose} className="w-full p-4 rounded-xl bg-black text-white text-[9px] font-black uppercase hover:bg-[#ff0095] transition-all">SALIR</button></div>
-      </div>
 
-      <div className="flex-grow flex flex-col overflow-hidden relative">
+        <div className="flex-grow flex flex-col overflow-hidden relative">
         {activeTab === 'reports' && (
            <div className="p-8 h-full overflow-y-auto no-scrollbar animate-reveal bg-[#f8f7f2]">
               <div className="max-w-7xl mx-auto space-y-8 pb-10">
@@ -340,65 +450,218 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
 
         {activeTab === 'pos' && (
-          <div className="flex h-full overflow-hidden bg-[#f8f7f2]">
-             <div className="flex-grow flex flex-col p-8 overflow-hidden">
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 mb-4">
-                  <button onClick={() => setPosCategory('todo')} className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase transition-all ${posCategory === 'todo' ? 'bg-black text-white' : 'bg-white border'}`}>TODO</button>
-                  {categories.map(c => <button key={c.id} onClick={() => setPosCategory(c.id)} className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase transition-all ${posCategory === c.id ? 'bg-[#ff0095] text-white' : 'bg-white border'}`}>{c.name}</button>)}
+          <div className="flex flex-col lg:flex-row h-full overflow-hidden bg-[#f8f7f2] relative">
+             {/* Products Section */}
+             <div className={`flex-grow flex flex-col p-2 md:p-8 overflow-hidden ${showMobileCart ? 'hidden lg:flex' : 'flex'}`}>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 md:mb-4 px-2 gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={testDbConnection}
+                        className={`flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase transition-all hover:scale-105 ${dbStatus === 'connected' ? 'bg-green-100 text-green-600' : dbStatus === 'error' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' : dbStatus === 'error' ? 'bg-red-500' : 'bg-gray-400 animate-pulse'}`}></div>
+                        {dbStatus === 'connected' ? 'Sincronizado' : dbStatus === 'error' ? 'Error de Conexión' : 'Conectando...'}
+                      </button>
+                      <button 
+                        onClick={fetchSessions}
+                        className="w-8 h-8 flex items-center justify-center bg-white rounded-xl border shadow-sm text-gray-400 hover:text-black transition-all"
+                        title="Refrescar Mesas"
+                      >
+                        <i className="fa-solid fa-rotate text-[10px]"></i>
+                      </button>
+                      <h3 className="text-xl font-black brand-font italic uppercase hidden md:block">Punto de Venta</h3>
+                    </div>
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm overflow-x-auto no-scrollbar max-w-[200px] md:max-w-md">
+                      {posSessions.map(s => (
+                        <div key={s.id} className="relative flex items-center">
+                          <button 
+                            onClick={() => {
+                              setActiveSessionId(s.id);
+                              if (window.innerWidth < 1024) {
+                                setShowMobileCart(true);
+                              }
+                            }}
+                            className={`pl-3 pr-12 py-2 rounded-xl text-[9px] font-black uppercase transition-all whitespace-nowrap border-2 ${activeSessionId === s.id ? 'bg-[#ff0095] text-white border-[#ff0095] shadow-md scale-105 z-10' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
+                          >
+                            {s.name} {s.items.length > 0 && `(${s.items.length})`}
+                          </button>
+                          <div className="absolute right-1 flex items-center gap-0.5 z-20">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingSession({ id: s.id, name: s.name });
+                              }}
+                              className={`w-5 h-5 flex items-center justify-center rounded-lg transition-all ${activeSessionId === s.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 hover:bg-black hover:text-white'}`}
+                            >
+                              <i className="fa-solid fa-pen text-[7px]"></i>
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteSession({ id: s.id, name: s.name });
+                              }}
+                              className={`w-5 h-5 flex items-center justify-center rounded-lg transition-all ${activeSessionId === s.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-500 hover:text-white'}`}
+                            >
+                              <i className="fa-solid fa-xmark text-[8px]"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={() => setShowSessionModal(true)} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg text-gray-400 hover:text-black transition-all flex-shrink-0">
+                        <i className="fa-solid fa-plus text-[10px]"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="lg:hidden flex items-center justify-between w-full md:w-auto gap-2">
+                    <h3 className="text-xl font-black brand-font italic uppercase md:hidden">POS</h3>
+                    <button 
+                      onClick={() => setShowMobileCart(true)}
+                      className="bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg"
+                    >
+                      <i className="fa-solid fa-cart-shopping"></i>
+                      {posCart.length} ITEMS
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-y-auto no-scrollbar pb-10">
+
+                <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar pb-2 md:pb-6 mb-1 md:mb-4">
+                  <button onClick={() => setPosCategory('todo')} className={`px-4 md:px-8 py-2 md:py-4 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase transition-all whitespace-nowrap ${posCategory === 'todo' ? 'bg-black text-white' : 'bg-white border'}`}>TODO</button>
+                  {categories.map(c => <button key={c.id} onClick={() => setPosCategory(c.id)} className={`px-4 md:px-8 py-2 md:py-4 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase transition-all whitespace-nowrap ${posCategory === c.id ? 'bg-[#ff0095] text-white' : 'bg-white border'}`}>{c.name}</button>)}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4 overflow-y-auto no-scrollbar pb-32">
                    {products.filter(p => posCategory === 'todo' || p.category_id === posCategory).map(p => (
-                     <button key={p.id} onClick={() => addToPOS(p)} className="bg-white p-4 rounded-[2rem] border shadow-sm hover:border-black transition-all text-left group">
-                        <div className="aspect-square rounded-2xl overflow-hidden mb-4 bg-gray-50"><img src={p.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
-                        <h5 className="font-black text-[11px] uppercase italic truncate">{p.name}</h5><p className="text-[#ff0095] font-black text-[12px] italic">S/ {p.price.toFixed(2)}</p>
+                     <button key={p.id} onClick={() => addToPOS(p)} className="bg-white p-2 md:p-4 rounded-[1.2rem] md:rounded-[2rem] border shadow-sm hover:border-black transition-all text-left group">
+                        <div className="aspect-square rounded-lg md:rounded-2xl overflow-hidden mb-2 md:mb-4 bg-gray-50">
+                          <img src={p.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        </div>
+                        <h5 className="font-black text-[9px] md:text-[11px] uppercase italic truncate leading-tight">{p.name}</h5>
+                        <p className="text-[#ff0095] font-black text-[10px] md:text-[12px] italic">S/ {p.price.toFixed(2)}</p>
                      </button>
                    ))}
                 </div>
+
+                {/* Floating Bottom Bar for Mobile POS */}
+                {posCart.length > 0 && (
+                  <div className="lg:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setShowMobileCart(true)}
+                        className="flex-grow bg-black text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between border-2 border-white/10"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                            <i className="fa-solid fa-basket-shopping text-[#ff0095]"></i>
+                          </div>
+                          <div className="text-left">
+                            <p className="text-[8px] font-black uppercase opacity-70 leading-none">Canasta</p>
+                            <p className="text-xs font-black uppercase">{posCart.length} Items</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[8px] font-black uppercase opacity-70 leading-none">Total</p>
+                          <p className="text-lg font-black italic brand-font">S/ {posTotal.toFixed(2)}</p>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => setShowCheckoutModal(true)}
+                        className="bg-[#ff0095] text-white px-6 rounded-2xl shadow-2xl font-black uppercase text-[10px] flex flex-col items-center justify-center gap-1 border-2 border-white/20"
+                      >
+                        <i className="fa-solid fa-cash-register text-lg"></i>
+                        PAGAR
+                      </button>
+                    </div>
+                  </div>
+                )}
              </div>
-             <div className="w-[400px] bg-white border-l shadow-2xl flex flex-col p-8">
-               <h4 className="text-2xl font-black brand-font uppercase italic mb-8">Carrito POS</h4>
-               <div className="flex-grow overflow-y-auto no-scrollbar space-y-4">
-                  {posCart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl">
-                       <div className="flex-grow"><h6 className="font-black text-[11px] uppercase italic">{item.name}</h6><p className="text-[10px] font-bold text-gray-400">S/ {item.price.toFixed(2)}</p></div>
-                       <div className="flex items-center gap-3">
-                          <button onClick={() => setPosCart(posCart.map(i => i.id === item.id ? {...i, quantity: Math.max(0, i.quantity - 1)} : i).filter(i => i.quantity > 0))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-black">-</button>
-                          <span className="font-black text-xs">{item.quantity}</span>
-                          <button onClick={() => addToPOS(item)} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-black">+</button>
+
+             {/* Cart Section */}
+             <div className={`${showMobileCart ? 'flex' : 'hidden lg:flex'} w-full lg:w-[380px] bg-white border-t lg:border-t-0 lg:border-l shadow-2xl flex-col p-4 md:p-8 h-full lg:h-auto z-30`}>
+               <div className="flex justify-between items-center mb-4 md:mb-8">
+                 <div className="flex items-center gap-3">
+                   <button onClick={() => setShowMobileCart(false)} className="lg:hidden w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
+                     <i className="fa-solid fa-arrow-left"></i>
+                   </button>
+                   <h4 className="text-lg md:text-2xl font-black brand-font uppercase italic">Carrito POS</h4>
+                 </div>
+                 <span className="text-[8px] md:text-[10px] font-black bg-black text-white px-2 py-0.5 rounded-full">{posCart.length} items</span>
+               </div>
+               <div className="flex-grow overflow-y-auto no-scrollbar space-y-2 md:space-y-4">
+                  {posCart.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 py-10">
+                      <i className="fa-solid fa-cart-shopping text-4xl mb-4"></i>
+                      <p className="text-[9px] md:text-[10px] font-black uppercase">Carrito vacío</p>
+                    </div>
+                  ) : posCart.map(item => (
+                    <div key={item.id} className="flex justify-between items-center bg-gray-50/50 p-2 md:p-4 rounded-xl md:rounded-2xl">
+                       <div className="flex-grow pr-2"><h6 className="font-black text-[9px] md:text-[11px] uppercase italic leading-tight">{item.name}</h6><p className="text-[8px] md:text-[10px] font-bold text-gray-400">S/ {item.price.toFixed(2)}</p></div>
+                       <div className="flex items-center gap-1 md:gap-3">
+                          <button onClick={() => setPosCart(posCart.map(i => i.id === item.id ? {...i, quantity: Math.max(0, i.quantity - 1)} : i).filter(i => i.quantity > 0))} className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-white border flex items-center justify-center font-black text-xs">-</button>
+                          <span className="font-black text-[10px] md:text-xs w-4 text-center">{item.quantity}</span>
+                          <button onClick={() => addToPOS(item)} className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-white border flex items-center justify-center font-black text-xs">+</button>
                        </div>
                     </div>
                   ))}
                </div>
-               <div className="pt-8 border-t space-y-4">
-                  <div className="flex justify-between items-end"><span className="text-[10px] font-black text-gray-400">TOTAL A COBRAR</span><span className="text-4xl font-black italic brand-font">S/ {posTotal.toFixed(2)}</span></div>
-                  <button disabled={posCart.length === 0} onClick={() => setShowCheckoutModal(true)} className="w-full bg-[#ff0095] text-white py-6 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 disabled:bg-gray-200">COBRAR</button>
+               <div className="pt-4 md:pt-8 border-t space-y-2 md:space-y-4 mt-auto">
+                  <div className="flex justify-between items-end"><span className="text-[8px] md:text-[10px] font-black text-gray-400">TOTAL</span><span className="text-xl md:text-4xl font-black italic brand-font">S/ {posTotal.toFixed(2)}</span></div>
+                  <button disabled={posCart.length === 0} onClick={() => setShowCheckoutModal(true)} className="w-full bg-[#ff0095] text-white py-4 md:py-6 rounded-xl md:rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 disabled:bg-gray-200 text-xs md:text-base">COBRAR</button>
                </div>
-            </div>
+             </div>
           </div>
         )}
 
         {activeTab === 'orders' && (
-           <div className="p-8 h-full flex flex-col overflow-hidden animate-reveal">
-              <div className="flex justify-between items-center mb-8">
-                 <h3 className="text-3xl font-black brand-font italic uppercase tracking-tighter">Gestión de Pedidos</h3>
-                 <button onClick={fetchOrders} className={`w-12 h-12 bg-white rounded-2xl border shadow-sm ${loadingOrders ? 'animate-spin' : ''}`}><i className="fa-solid fa-rotate-right"></i></button>
-              </div>
-              <div className="flex gap-6 overflow-x-auto h-full pb-8 no-scrollbar items-start">
-                <KanbanCol title="PENDIENTES" color="#f59e0b" count={orders.filter(o => o.status === 'pending').length}>
-                  {orders.filter(o => o.status === 'pending').map(o => (
-                    <OrderCard key={o.id} order={o} primaryAction={{ label: 'CONFIRMAR', color: 'bg-blue-600', onClick: () => updateOrderStatus(o.id, 'confirmed') }} onMarkPaid={() => updatePaymentStatus(o.id, 'paid')} onDelete={async () => { if(confirm('¿Eliminar?')) { await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); } }} />
-                  ))}
-                </KanbanCol>
-                <KanbanCol title="EN COCINA" color="#2563eb" count={orders.filter(o => ['confirmed', 'ready'].includes(o.status)).length}>
-                  {orders.filter(o => ['confirmed', 'ready'].includes(o.status)).map(o => (
-                    <OrderCard key={o.id} order={o} primaryAction={{ label: 'COMPLETAR', color: 'bg-green-600', onClick: () => updateOrderStatus(o.id, 'completed') }} onDelete={async () => { if(confirm('¿Eliminar?')) { await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); } }} />
-                  ))}
-                </KanbanCol>
-                <KanbanCol title="FINALIZADOS" color="#9ca3af" count={orders.filter(o => ['completed', 'cancelled'].includes(o.status)).length}>
-                  {orders.filter(o => ['completed', 'cancelled'].includes(o.status)).map(o => (
-                    <OrderCard key={o.id} order={o} onDelete={async () => { if(confirm('¿Eliminar?')) { await supabase.from('orders').delete().eq('id', o.id); fetchOrders(); } }} isArchived />
-                  ))}
-                </KanbanCol>
+           <div className="p-8 h-full flex flex-col overflow-hidden animate-reveal bg-[#f8f7f2]">
+              <div className="max-w-6xl mx-auto w-full flex flex-col h-full">
+                <div className="flex justify-between items-center mb-10">
+                   <div>
+                     <h3 className="text-4xl font-black brand-font italic uppercase tracking-tighter">Gestión de Pedidos</h3>
+                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Recibe y gestiona tus pedidos web y locales</p>
+                   </div>
+                   <button onClick={fetchOrders} className={`w-14 h-14 bg-white rounded-[1.5rem] border shadow-sm flex items-center justify-center hover:scale-105 transition-all ${loadingOrders ? 'animate-spin' : ''}`}>
+                     <i className="fa-solid fa-rotate-right text-lg"></i>
+                   </button>
+                </div>
+
+                <div className="flex-grow overflow-y-auto no-scrollbar pb-20">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length === 0 ? (
+                      <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-20">
+                        <i className="fa-solid fa-clipboard-list text-6xl mb-4"></i>
+                        <p className="text-xl font-black brand-font uppercase italic">No hay pedidos activos</p>
+                      </div>
+                    ) : orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').map(o => (
+                      <OrderCard 
+                        key={o.id} 
+                        order={o} 
+                        primaryAction={{ 
+                          label: 'PAGAR Y FINALIZAR', 
+                          color: 'bg-[#ff0095]', 
+                          onClick: () => completeOrder(o.id) 
+                        }} 
+                        onMarkPaid={o.payment_status !== 'paid' ? () => updatePaymentStatus(o.id, 'paid') : undefined} 
+                        onDelete={() => setConfirmDeleteOrder({ id: o.id, customer: o.customer_name })} 
+                      />
+                    ))}
+                  </div>
+
+                  {orders.filter(o => o.status === 'completed' || o.status === 'cancelled').length > 0 && (
+                    <div className="mt-20">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-8 border-b pb-4">Historial Reciente</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60 hover:opacity-100 transition-opacity">
+                        {orders.filter(o => o.status === 'completed' || o.status === 'cancelled').slice(0, 6).map(o => (
+                          <OrderCard 
+                            key={o.id} 
+                            order={o} 
+                            onDelete={() => setConfirmDeleteOrder({ id: o.id, customer: o.customer_name })} 
+                            isArchived 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
            </div>
         )}
@@ -415,7 +678,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border shadow-sm flex flex-col gap-4 group hover:shadow-xl transition-all">
                     <div className="aspect-square rounded-[2rem] overflow-hidden bg-gray-50"><img src={p.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /></div>
                     <div className="px-2"><h5 className="font-black text-[11px] uppercase truncate italic">{p.name}</h5><p className="text-[#ff0095] font-black text-xs italic tracking-tighter">S/ {p.price.toFixed(2)}</p></div>
-                    <button onClick={() => setEditingProduct(p)} className="w-full py-3 bg-gray-50 rounded-xl text-[9px] font-black uppercase hover:bg-black hover:text-white transition-all">EDITAR</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditingProduct(p)} className="flex-grow py-3 bg-gray-50 rounded-xl text-[9px] font-black uppercase hover:bg-black hover:text-white transition-all">EDITAR</button>
+                      <button 
+                        onClick={async () => {
+                          if (confirm(`¿Eliminar ${p.name} de la carta?`)) {
+                            const { error } = await supabase.from('products').delete().eq('id', p.id);
+                            if (error) alert("Error al eliminar producto: " + error.message);
+                            else onRefresh();
+                          }
+                        }}
+                        className="px-4 py-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                      >
+                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -467,6 +744,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
              </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Modales de Edición */}
@@ -496,8 +774,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="flex gap-3 pt-4">
               <button disabled={saving} onClick={async () => {
                 setSaving(true); const { variants, category, ...cleanData } = editingProduct as any;
-                try { if(editingProduct.id) await supabase.from('products').update(cleanData).eq('id', editingProduct.id); else await supabase.from('products').insert([cleanData]); setEditingProduct(null); onRefresh(); } catch(e) { alert("Error"); } finally { setSaving(false); }
-              }} className="flex-grow bg-[#ff0095] text-white py-5 rounded-2xl font-black uppercase">GUARDAR</button>
+                try { 
+                  let res;
+                  if(editingProduct.id) res = await supabase.from('products').update(cleanData).eq('id', editingProduct.id); 
+                  else res = await supabase.from('products').insert([cleanData]); 
+                  
+                  if (res.error) throw res.error;
+                  
+                  setEditingProduct(null); 
+                  onRefresh(); 
+                } catch(e: any) { 
+                  alert("Error al guardar producto: " + (e.message || "Error desconocido")); 
+                } finally { setSaving(false); }
+              }} className="flex-grow bg-[#ff0095] text-white py-5 rounded-2xl font-black uppercase">
+                {saving ? 'GUARDANDO...' : 'GUARDAR'}
+              </button>
               <button onClick={() => setEditingProduct(null)} className="px-6 bg-gray-50 rounded-2xl font-black text-sm text-red-500">✕</button>
             </div>
           </div>
@@ -506,19 +797,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* POS Checkout Modal - Mejorado para tu captura */}
       {showCheckoutModal && (
-        <div className="fixed inset-0 z-[1000] bg-black/90 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-4xl rounded-[4rem] p-16 flex flex-col items-center gap-12 shadow-2xl animate-reveal">
+        <div className="fixed inset-0 z-[1000] bg-black/90 flex items-center justify-center p-4 md:p-6">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 flex flex-col items-center gap-8 md:gap-12 shadow-2xl animate-reveal">
             <div className="text-center">
-               <p className="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.3em]">TOTAL DE VENTA</p>
-               <h2 className="text-8xl font-black brand-font italic tracking-tighter">S/ {posTotal.toFixed(2)}</h2>
+               <p className="text-[8px] md:text-[10px] font-black uppercase text-gray-400 mb-2 md:mb-4 tracking-[0.3em]">TOTAL DE VENTA</p>
+               <h2 className="text-5xl md:text-8xl font-black brand-font italic tracking-tighter">S/ {posTotal.toFixed(2)}</h2>
             </div>
             
-            <div className="grid grid-cols-3 gap-4 w-full">
+            <div className="grid grid-cols-3 gap-2 md:gap-4 w-full">
               {(['efectivo', 'yape', 'plin'] as const).map(m => (
                 <button 
                   key={m} 
                   onClick={() => setPosPaymentMethod(m)} 
-                  className={`py-8 rounded-3xl text-xs font-black uppercase border-2 transition-all duration-300 ${posPaymentMethod === m ? 'bg-black text-white border-black scale-105 shadow-xl' : 'bg-gray-50/50 text-gray-400 border-transparent hover:border-gray-200'}`}
+                  className={`py-4 md:py-8 rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-black uppercase border-2 transition-all duration-300 ${posPaymentMethod === m ? 'bg-black text-white border-black scale-105 shadow-xl' : 'bg-gray-50/50 text-gray-400 border-transparent hover:border-gray-200'}`}
                 >
                   {m}
                 </button>
@@ -528,13 +819,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <button 
               disabled={saving} 
               onClick={handlePOSCheckout} 
-              className="w-full bg-[#ff0095] text-white py-10 rounded-3xl font-black uppercase text-xl shadow-2xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-4"
+              className="w-full bg-[#ff0095] text-white py-6 md:py-10 rounded-2xl md:rounded-3xl font-black uppercase text-base md:text-xl shadow-2xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-3 md:gap-4"
             >
               {saving ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-check"></i>}
               CONFIRMAR VENTA
             </button>
             
-            <button onClick={() => setShowCheckoutModal(false)} className="text-xs font-black uppercase text-gray-300 hover:text-black transition-colors">CANCELAR</button>
+            <button onClick={() => setShowCheckoutModal(false)} className="text-[10px] md:text-xs font-black uppercase text-gray-300 hover:text-black transition-colors">CANCELAR</button>
           </div>
         </div>
       )}
@@ -582,6 +873,137 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+      {/* Modal Nueva Mesa/Sesión */}
+      {showSessionModal && (
+        <div className="fixed inset-0 z-[1300] bg-black/80 flex items-center justify-center p-6 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-10 text-center space-y-6 shadow-2xl animate-reveal">
+            <h3 className="text-xl font-black brand-font uppercase italic">Nueva Mesa / Pedido</h3>
+            <div className="space-y-4">
+              <input 
+                type="text" 
+                placeholder="Ej: Mesa 5, Para Llevar..." 
+                value={newSessionName} 
+                onChange={e => setNewSessionName(e.target.value)}
+                className="w-full p-4 bg-gray-50 rounded-xl font-black outline-none text-center text-sm border-2 border-transparent focus:border-[#ff0095]"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={async () => {
+                    if (!newSessionName) return;
+                    const { data: newSess } = await supabase.from('pos_sessions').insert([{ name: newSessionName, items: [] }]).select().single();
+                    if (newSess) {
+                      setActiveSessionId(newSess.id);
+                      setNewSessionName('');
+                      setShowSessionModal(false);
+                    }
+                  }}
+                  className="flex-grow bg-black text-white py-4 rounded-xl font-black uppercase text-[10px]"
+                >
+                  CREAR
+                </button>
+                <button onClick={() => setShowSessionModal(false)} className="px-6 bg-gray-100 rounded-xl font-black text-[10px]">CANCELAR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Mesa */}
+      {editingSession && (
+        <div className="fixed inset-0 z-[1300] bg-black/80 flex items-center justify-center p-6 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-10 text-center space-y-6 shadow-2xl animate-reveal">
+            <h3 className="text-xl font-black brand-font uppercase italic">Editar Nombre</h3>
+            <div className="space-y-4">
+              <input 
+                type="text" 
+                value={editingSession.name} 
+                onChange={e => setEditingSession({...editingSession, name: e.target.value})}
+                className="w-full p-4 bg-gray-50 rounded-xl font-black outline-none text-center text-sm border-2 border-transparent focus:border-[#ff0095]"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={async () => {
+                    if (!editingSession.name.trim()) return;
+                    const { error } = await supabase.from('pos_sessions').update({ name: editingSession.name.trim() }).eq('id', editingSession.id);
+                    if (!error) {
+                      fetchSessions();
+                      setEditingSession(null);
+                    } else {
+                      alert("Error al editar: " + error.message);
+                    }
+                  }}
+                  className="flex-grow bg-black text-white py-4 rounded-xl font-black uppercase text-[10px]"
+                >
+                  GUARDAR
+                </button>
+                <button onClick={() => setEditingSession(null)} className="px-6 bg-gray-100 rounded-xl font-black text-[10px]">CANCELAR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Eliminar */}
+      {confirmDeleteSession && (
+        <div className="fixed inset-0 z-[1300] bg-black/80 flex items-center justify-center p-6 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-10 text-center space-y-6 shadow-2xl animate-reveal">
+            <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+              <i className="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 className="text-xl font-black brand-font uppercase italic">¿Cerrar Mesa?</h3>
+            <p className="text-[10px] font-bold text-gray-400 uppercase">Se perderán los items de {confirmDeleteSession.name}</p>
+            <div className="flex gap-2">
+              <button 
+                onClick={async () => {
+                  const { error } = await supabase.from('pos_sessions').delete().eq('id', confirmDeleteSession.id);
+                  if (!error) {
+                    setConfirmDeleteSession(null);
+                  } else {
+                    alert("Error al eliminar: " + error.message);
+                  }
+                }}
+                className="flex-grow bg-red-600 text-white py-4 rounded-xl font-black uppercase text-[10px]"
+              >
+                SÍ, CERRAR
+              </button>
+              <button onClick={() => setConfirmDeleteSession(null)} className="px-6 bg-gray-100 rounded-xl font-black text-[10px]">NO</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Confirmar Eliminar Pedido */}
+      {confirmDeleteOrder && (
+        <div className="fixed inset-0 z-[1300] bg-black/80 flex items-center justify-center p-6 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-10 text-center space-y-6 shadow-2xl animate-reveal">
+            <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+              <i className="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h3 className="text-xl font-black brand-font uppercase italic">¿Eliminar Pedido?</h3>
+            <p className="text-[10px] font-bold text-gray-400 uppercase">Se borrará permanentemente el pedido de {confirmDeleteOrder.customer}</p>
+            <div className="flex gap-2">
+              <button 
+                onClick={async () => {
+                  try {
+                    await supabase.from('order_items').delete().eq('order_id', confirmDeleteOrder.id);
+                    const { error } = await supabase.from('orders').delete().eq('id', confirmDeleteOrder.id);
+                    if (error) throw error;
+                    fetchOrders();
+                    setConfirmDeleteOrder(null);
+                  } catch (err: any) { 
+                    alert("Error al eliminar: " + err.message); 
+                  }
+                }}
+                className="flex-grow bg-red-600 text-white py-4 rounded-xl font-black uppercase text-[10px]"
+              >
+                SÍ, ELIMINAR
+              </button>
+              <button onClick={() => setConfirmDeleteOrder(null)} className="px-6 bg-gray-100 rounded-xl font-black text-[10px]">CANCELAR</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -594,8 +1016,9 @@ const KPIReportCard: React.FC<{ title: string; value: string; icon: string; colo
 );
 
 const TabBtn: React.FC<{ active: boolean; icon: string; label: string; onClick: () => void; collapsed: boolean }> = ({ active, icon, label, onClick, collapsed }) => (
-  <button onClick={onClick} className={`flex items-center gap-4 p-4 rounded-[1.2rem] text-[10px] font-black uppercase transition-all ${active ? 'bg-black text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
-    <i className={`fa-solid ${icon} ${active ? 'text-[#ff0095]' : ''} ${collapsed ? 'text-xl mx-auto' : 'text-sm'}`}></i> {!collapsed && <span>{label}</span>}
+  <button onClick={onClick} className={`flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:p-4 rounded-xl md:rounded-[1.2rem] text-[8px] md:text-[10px] font-black uppercase transition-all flex-1 md:flex-none ${active ? 'bg-black text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+    <i className={`fa-solid ${icon} ${active ? 'text-[#ff0095]' : ''} ${collapsed ? 'text-xl mx-auto' : 'text-sm md:text-base'}`}></i> 
+    <span className={`${collapsed ? 'hidden' : 'block'} text-[7px] md:text-[10px]`}>{label}</span>
   </button>
 );
 
@@ -606,20 +1029,20 @@ const Field: React.FC<{ label: string; value?: string; onBlur: (v: string) => vo
   </div>
 );
 
-const KanbanCol: React.FC<{ title: string; color: string; count: number; children: React.ReactNode }> = ({ title, color, count, children }) => (
-  <div className="flex-1 min-w-[320px] flex flex-col bg-white rounded-[2.5rem] p-6 border-t-[8px] shadow-sm max-h-full overflow-hidden" style={{ borderTopColor: color }}>
-    <div className="flex justify-between mb-6 px-2 items-center"><h4 className="text-[10px] font-black uppercase italic tracking-widest" style={{ color }}>{title}</h4><span className="bg-gray-50 px-3 py-1 rounded-lg text-[10px] font-black text-gray-400">{count}</span></div>
-    <div className="space-y-4 flex-grow overflow-y-auto no-scrollbar pb-6">{children}</div>
-  </div>
-);
-
 const OrderCard: React.FC<{ order: Order; primaryAction?: { label: string; color: string; onClick: () => void }; onMarkPaid?: () => void; onDelete: () => void; isArchived?: boolean; }> = ({ order, primaryAction, onMarkPaid, onDelete, isArchived }) => (
   <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 relative group hover:shadow-lg transition-all">
-    <button onClick={onDelete} className="absolute top-4 right-4 text-gray-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i className="fa-solid fa-trash-can text-sm"></i></button>
+    <button onClick={onDelete} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-all p-2 bg-gray-50 rounded-full w-8 h-8 flex items-center justify-center z-10">
+      <i className="fa-solid fa-trash-can text-[10px]"></i>
+    </button>
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
         <span className="text-[8px] font-black text-[#ff0095] tracking-[0.3em]">#{order.id.slice(-4).toUpperCase()}</span>
         <div className="flex gap-2">
+          {order.payment_status === 'paid' && (
+            <span className="px-2 py-1 bg-green-500 text-white rounded-lg text-[7px] font-black uppercase flex items-center gap-1 shadow-sm">
+              <i className="fa-solid fa-check"></i> COBRADO
+            </span>
+          )}
           <span className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase ${ (order.customer_name === 'Venta Directa Local' || order.address === 'Venta Presencial') ? 'bg-black text-white' : 'bg-[#ff0095] text-white'}`}>{(order.customer_name === 'Venta Directa Local' || order.address === 'Venta Presencial') ? 'POS' : 'WEB'}</span>
           <span className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-400'}`}>{order.payment_method}</span>
         </div>
